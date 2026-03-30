@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from typing import Callable
 from dataclasses import dataclass
 
@@ -12,10 +14,31 @@ from .const import (
     AQUAREA_COORDINATORS,
 )
 from aio_panasonic_comfort_cloud import PanasonicDevice, ChangeRequestBuilder, constants
-import aioaquarea
+from aioaquarea import PowerfulTime, QuietMode
+from aioaquarea.errors import RequestFailedError
 
 from .coordinator import PanasonicDeviceCoordinator, AquareaDeviceCoordinator
 from .base import PanasonicDataEntity, AquareaDataEntity
+
+_LOGGER = logging.getLogger(__name__)
+
+SELECT_DELAY = 10.0
+
+QUIET_MODE_LOOKUP = {
+    "level1": QuietMode.LEVEL1,
+    "level2": QuietMode.LEVEL2,
+    "level3": QuietMode.LEVEL3,
+    "off": QuietMode.OFF,
+}
+QUIET_MODE_REVERSE_LOOKUP = {v: k for k, v in QUIET_MODE_LOOKUP.items()}
+
+POWERFUL_TIME_LOOKUP = {
+    "on-30m": PowerfulTime.ON_30MIN,
+    "on-60m": PowerfulTime.ON_60MIN,
+    "on-90m": PowerfulTime.ON_90MIN,
+    "off": PowerfulTime.OFF,
+}
+POWERFUL_TIME_REVERSE_LOOKUP = {v: k for k, v in POWERFUL_TIME_LOOKUP.items()}
 
 @dataclass(frozen=True, kw_only=True)
 class PanasonicSelectEntityDescription(SelectEntityDescription):
@@ -69,74 +92,8 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
 
     # --- Aquarea selects ---
     for coordinator in aquarea_coordinators:
-        device = coordinator.device
-        # Quiet mode
-        if hasattr(device, "has_quiet_mode") and getattr(device, "has_quiet_mode", False):
-            quiet_desc = PanasonicSelectEntityDescription(
-                key="quiet_mode",
-                translation_key="quiet_mode",
-                name="Quiet Mode",
-                icon="mdi:volume-off",
-                options=getattr(device, "quiet_modes", []),
-                set_option=lambda builder, value: builder.set_quiet_mode(value),
-                get_current_option=lambda dev: getattr(dev, "quiet_mode", None),
-                is_available=lambda dev: getattr(dev, "has_quiet_mode", False),
-            )
-            entities.append(PanasonicSelectEntity(coordinator, quiet_desc))
-        # Operation mode
-        if hasattr(device, "has_operation_mode") and getattr(device, "has_operation_mode", False):
-            op_desc = PanasonicSelectEntityDescription(
-                key="operation_mode",
-                translation_key="operation_mode",
-                name="Operation Mode",
-                icon="mdi:cog",
-                options=getattr(device, "operation_modes", []),
-                set_option=lambda builder, value: builder.set_operation_mode(value),
-                get_current_option=lambda dev: getattr(dev, "operation_mode", None),
-                is_available=lambda dev: getattr(dev, "has_operation_mode", False),
-            )
-            entities.append(PanasonicSelectEntity(coordinator, op_desc))
-        # Presets
-        if hasattr(device, "has_presets") and getattr(device, "has_presets", False):
-            preset_desc = PanasonicSelectEntityDescription(
-                key="preset",
-                translation_key="preset",
-                name="Preset",
-                icon="mdi:star",
-                options=getattr(device, "presets", []),
-                set_option=lambda builder, value: builder.set_preset(value),
-                get_current_option=lambda dev: getattr(dev, "preset", None),
-                is_available=lambda dev: getattr(dev, "has_presets", False),
-            )
-            entities.append(PanasonicSelectEntity(coordinator, preset_desc))
-
-        # Powerful Time
-        if hasattr(device, "powerful_time") and hasattr(device, "set_powerful_time"):
-            pow_desc = AquareaSelectEntityDescription(
-                key="powerful_time",
-                translation_key="powerful_time",
-                name="Powerful Time",
-                icon="mdi:timer-outline",
-                options=[e.name for e in aioaquarea.PowerfulTime],
-                set_option=lambda dev, val: dev.set_powerful_time(aioaquarea.PowerfulTime[val]),
-                get_current_option=lambda dev: getattr(dev.powerful_time, "name", str(dev.powerful_time)),
-                is_available=lambda dev: dev.powerful_time is not None,
-            )
-            entities.append(AquareaSelectEntity(coordinator, pow_desc))
-
-        # Special Status
-        if hasattr(device, "special_status") and hasattr(device, "set_special_status"):
-            special_desc = AquareaSelectEntityDescription(
-                key="special_status",
-                translation_key="special_status",
-                name="Special Status",
-                icon="mdi:leaf",
-                options=["OFF"] + [e.name for e in aioaquarea.SpecialStatus],
-                set_option=lambda dev, val: dev.set_special_status(None if val == "OFF" else aioaquarea.SpecialStatus[val]),
-                get_current_option=lambda dev: getattr(dev.special_status, "name", "OFF") if dev.special_status is not None else "OFF",
-                is_available=lambda dev: True,
-            )
-            entities.append(AquareaSelectEntity(coordinator, special_desc))
+        entities.append(AquareaQuietModeSelect(coordinator))
+        entities.append(AquareaPowerfulTimeSelect(coordinator))
 
     async_add_entities(entities)
 
@@ -176,31 +133,97 @@ class PanasonicSelectEntity(PanasonicDataEntity, PanasonicSelectEntityBase):
             self.coordinator.device
         )
 
-@dataclass(frozen=True, kw_only=True)
-class AquareaSelectEntityDescription(SelectEntityDescription):
-    """Description of an Aquarea select entity."""
-    set_option: Callable[['AquareaDevice', str], Any]
-    get_current_option: Callable[['AquareaDevice'], str]
-    is_available: Callable[['AquareaDevice'], bool]
+class AquareaQuietModeSelect(AquareaDataEntity, SelectEntity):
+    """Select entity for Aquarea quiet mode."""
 
-class AquareaSelectEntity(AquareaDataEntity, SelectEntity):
-    entity_description: AquareaSelectEntityDescription
-
-    def __init__(self, coordinator: AquareaDeviceCoordinator, description: AquareaSelectEntityDescription):
-        self.entity_description = description
-        self._attr_options = description.options
-        super().__init__(coordinator, description.key)
+    def __init__(self, coordinator: AquareaDeviceCoordinator) -> None:
+        super().__init__(coordinator, "quiet_mode")
+        self._attr_options = list(QUIET_MODE_LOOKUP.keys())
+        self._attr_icon = "mdi:volume-off"
+        self._optimistic_option: str | None = None
 
     @property
-    def available(self) -> bool:
-        return self.entity_description.is_available(self.coordinator.device)
-
-    async def async_select_option(self, option: str) -> None:
-        await self.entity_description.set_option(self.coordinator.device, option)
-        self._attr_current_option = option
-        self.async_write_ha_state()
+    def current_option(self) -> str:
+        if self._optimistic_option is not None:
+            return self._optimistic_option
+        return QUIET_MODE_REVERSE_LOOKUP.get(self.coordinator.device.quiet_mode)
 
     def _async_update_attrs(self) -> None:
-        self._attr_available = self.available
-        self._attr_current_option = self.entity_description.get_current_option(self.coordinator.device)
+        self._attr_current_option = QUIET_MODE_REVERSE_LOOKUP.get(
+            self.coordinator.device.quiet_mode
+        )
+
+    async def _schedule_refresh(self) -> None:
+        await asyncio.sleep(SELECT_DELAY)
+        self._optimistic_option = None
+        try:
+            await self.coordinator.async_request_refresh()
+        except RequestFailedError:
+            _LOGGER.exception(
+                "Delayed refresh failed for device %s",
+                getattr(self.coordinator.device, "device_id", "unknown"),
+            )
+
+    async def async_select_option(self, option: str) -> None:
+        quiet_mode = QUIET_MODE_LOOKUP.get(option)
+        if quiet_mode is None:
+            return
+        if quiet_mode is self.coordinator.device.quiet_mode:
+            return
+        self._optimistic_option = option
+        self.async_write_ha_state()
+        await self.coordinator.device.set_quiet_mode(quiet_mode)
+        self.hass.async_create_task(self._schedule_refresh())
+
+
+class AquareaPowerfulTimeSelect(AquareaDataEntity, SelectEntity):
+    """Select entity for Aquarea powerful time."""
+
+    def __init__(self, coordinator: AquareaDeviceCoordinator) -> None:
+        super().__init__(coordinator, "powerful_time")
+        self._attr_options = list(POWERFUL_TIME_LOOKUP.keys())
+        self._optimistic_option: str | None = None
+
+    @property
+    def icon(self) -> str:
+        if self._optimistic_option is not None:
+            return "mdi:fire-off" if self._optimistic_option == "off" else "mdi:fire"
+        return (
+            "mdi:fire-off"
+            if self.coordinator.device.powerful_time is PowerfulTime.OFF
+            else "mdi:fire"
+        )
+
+    @property
+    def current_option(self) -> str:
+        if self._optimistic_option is not None:
+            return self._optimistic_option
+        return POWERFUL_TIME_REVERSE_LOOKUP.get(self.coordinator.device.powerful_time)
+
+    def _async_update_attrs(self) -> None:
+        self._attr_current_option = POWERFUL_TIME_REVERSE_LOOKUP.get(
+            self.coordinator.device.powerful_time
+        )
+
+    async def _schedule_refresh(self) -> None:
+        await asyncio.sleep(SELECT_DELAY)
+        self._optimistic_option = None
+        try:
+            await self.coordinator.async_request_refresh()
+        except RequestFailedError:
+            _LOGGER.exception(
+                "Delayed refresh failed for device %s",
+                getattr(self.coordinator.device, "device_id", "unknown"),
+            )
+
+    async def async_select_option(self, option: str) -> None:
+        powerful_time = POWERFUL_TIME_LOOKUP.get(option)
+        if powerful_time is None:
+            return
+        if powerful_time is self.coordinator.device.powerful_time:
+            return
+        self._optimistic_option = option
+        self.async_write_ha_state()
+        await self.coordinator.device.set_powerful_time(powerful_time)
+        self.hass.async_create_task(self._schedule_refresh())
 

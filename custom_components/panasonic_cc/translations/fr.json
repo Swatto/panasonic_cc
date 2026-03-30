@@ -1,0 +1,191 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Panasonic Comfort Cloud",
+        "description": "Entrez votre identifiant et mot de passe Panasonic",
+        "data": {
+          "username": "Identifiant Panasonic",
+          "password": "Mot de passe",
+          "enable_daily_energy_sensor": "Activer les capteurs d'énergie journalière",
+          "force_enable_nanoe": "Activer l'interrupteur Nanoe pour tous les appareils",
+          "use_panasonic_preset_names": "Utiliser « Silencieux » et « Puissant » au lieu de « Éco » et « Boost »",
+          "device_fetch_interval": "Intervalle de récupération de l'appareil (secondes)",
+          "energy_fetch_interval": "Intervalle de récupération de l'énergie (secondes)"
+        }
+      },
+      "reconfigure_confirm": {
+        "title": "Reconfigurer Panasonic Comfort Cloud",
+        "description": "Entrez votre identifiant et mot de passe Panasonic pour vous réauthentifier",
+        "data": {
+          "username": "Identifiant Panasonic",
+          "password": "Mot de passe"
+        }
+      }
+    },
+    "error": {
+      "no_devices": "Aucun appareil trouvé. Vérifiez votre compte et l'application CFC, puis réessayez.",
+      "device_timeout": "Délai de connexion à l'API dépassé.",
+      "device_fail": "Erreur inattendue lors de la connexion à l'API.",
+      "invalid_user_password": "Identifiant ou mot de passe Panasonic invalide."
+    },
+    "abort": {
+      "device_timeout": "Délai de connexion à l'appareil dépassé.",
+      "device_fail": "Erreur inattendue lors de la création de l'appareil.",
+      "already_configured": "L'appareil est déjà configuré",
+      "reauth_successful": "Réauthentification réussie."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "force_outside_sensor": "Forcer le capteur extérieur",
+          "enable_daily_energy_sensor": "Activer les capteurs d'énergie journalière (redémarrage requis)",
+          "force_enable_nanoe": "Activer l'interrupteur Nanoe pour tous les appareils (redémarrage requis)",
+          "use_panasonic_preset_names": "Utiliser « Silencieux » et « Puissant » au lieu de « Éco » et « Boost » (redémarrage requis)",
+          "device_fetch_interval": "Intervalle de récupération de l'appareil (secondes)",
+          "energy_fetch_interval": "Intervalle de récupération de l'énergie (secondes)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "heat_8_15": "+8/15°C",
+              "none": "Aucun",
+              "quiet": "Silencieux",
+              "powerful": "Puissant"
+            }
+          },
+          "swing_mode": {
+            "state": {
+              "Auto": "Auto",
+              "Up": "Haut",
+              "UpMid": "Mi-haut",
+              "Mid": "Milieu",
+              "DownMid": "Mi-bas",
+              "Down": "Bas",
+              "Swing": "Oscillation"
+            }
+          },
+          "swing_horizontal_mode": {
+            "state": {
+              "Auto": "Auto",
+              "Left": "Gauche",
+              "LeftMid": "Centre gauche",
+              "Mid": "Centre",
+              "RightMid": "Centre droit",
+              "Right": "Droite"
+            }
+          },
+          "fan_mode": {
+            "state": {
+              "Auto": "Auto",
+              "Low": "Faible",
+              "LowMid": "Moyen-faible",
+              "Mid": "Moyen",
+              "HighMid": "Moyen-fort",
+              "High": "Fort"
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "horizontal_swing": {
+        "state": {
+          "Auto": "Auto",
+          "Left": "Gauche",
+          "LeftMid": "Centre gauche",
+          "Mid": "Centre",
+          "RightMid": "Centre droit",
+          "Right": "Droite"
+        }
+      },
+      "vertical_swing": {
+        "state": {
+          "Auto": "Auto",
+          "Up": "Haut",
+          "UpMid": "Mi-haut",
+          "Mid": "Milieu",
+          "DownMid": "Mi-bas",
+          "Down": "Bas",
+          "Swing": "Oscillation"
+        }
+      },
+      "quiet_mode": {
+        "name": "Mode silencieux",
+        "state": {
+          "off": "Désactivé",
+          "level1": "Niveau 1",
+          "level2": "Niveau 2",
+          "level3": "Niveau 3"
+        }
+      },
+      "powerful_time": {
+        "name": "Durée mode puissant",
+        "state": {
+          "off": "Désactivé",
+          "on-30m": "30 minutes",
+          "on-60m": "60 minutes",
+          "on-90m": "90 minutes"
+        }
+      }
+    },
+    "switch": {
+      "force_dhw": { "name": "Forcer ECS" },
+      "force_heater": { "name": "Forcer chauffage" },
+      "holiday_timer": { "name": "Minuterie vacances" }
+    },
+    "binary_sensor": {
+      "is_on_error": { "name": "État d'erreur" },
+      "defrost": { "name": "Dégivrage" }
+    },
+    "button": {
+      "request_defrost": { "name": "Demander le dégivrage" }
+    },
+    "sensor": {
+      "outside_temperature": { "name": "Température extérieure" },
+      "tank_temperature": { "name": "Température du ballon" },
+      "zone_temperature": { "name": "Température de zone" },
+      "flow_temperature": { "name": "Température de départ" },
+      "return_temperature": { "name": "Température de retour" },
+      "compressor_status": { "name": "État du compresseur" },
+      "error_code": { "name": "Code d'erreur" },
+      "direction": { "name": "Direction de la pompe" },
+      "pump_status": { "name": "État de la pompe" },
+      "heating_accumulated_energy_consumption": { "name": "Consommation cumulée chauffage" },
+      "cooling_accumulated_energy_consumption": { "name": "Consommation cumulée refroidissement" },
+      "tank_accumulated_energy_consumption": { "name": "Consommation cumulée ballon" },
+      "accumulated_energy_consumption": { "name": "Consommation cumulée" },
+      "heating_energy_consumption": { "name": "Consommation chauffage" },
+      "tank_energy_consumption": { "name": "Consommation ballon" },
+      "cooling_energy_consumption": { "name": "Consommation refroidissement" },
+      "energy_consumption": { "name": "Consommation" }
+    },
+    "water_heater": {
+      "tank": { "name": "Ballon" }
+    }
+  },
+  "services": {
+    "set_horizontal_swing_mode": {
+      "name": "Définir le mode d'oscillation horizontale",
+      "description": "Définir le mode d'oscillation horizontale pour l'appareil climatique.",
+      "fields": {
+        "entity_id": {
+          "name": "Identifiant de l'entité",
+          "description": "Nom(s) des entités à modifier."
+        },
+        "swing_mode": {
+          "name": "Mode d'oscillation",
+          "description": "Nouveau mode d'oscillation horizontale."
+        }
+      }
+    }
+  }
+}

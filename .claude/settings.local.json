@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /Users/Gael_Gillard/dev/private/panasonic_cc/custom_components/panasonic_cc/*.py)",
+      "Bash(uv run:*)",
+      "WebFetch(domain:pypi.org)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI3MzQ3NWE3Mjc0ZTg0ZGUyYjdhZDFmNTY2ODMyZmMyZCIsImlhdCI6MTc3NDg1ODkzMCwiZXhwIjoyMDkwMjE4OTMwfQ.x7mexcgs4-836VYxJfk9u6L9TLVWKTTDV1Pd71OZSVY\" curl -s -H \"Authorization: Bearer $TOKEN\" http://localhost:8123/api/states)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI3MzQ3NWE3Mjc0ZTg0ZGUyYjdhZDFmNTY2ODMyZmMyZCIsImlhdCI6MTc3NDg1ODkzMCwiZXhwIjoyMDkwMjE4OTMwfQ.x7mexcgs4-836VYxJfk9u6L9TLVWKTTDV1Pd71OZSVY\" curl -s -H \"Authorization: Bearer $TOKEN\" http://localhost:8123/api/config/config_entries/entry)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI3MzQ3NWE3Mjc0ZTg0ZGUyYjdhZDFmNTY2ODMyZmMyZCIsImlhdCI6MTc3NDg1ODkzMCwiZXhwIjoyMDkwMjE4OTMwfQ.x7mexcgs4-836VYxJfk9u6L9TLVWKTTDV1Pd71OZSVY\" docker logs ha-test)",
+      "Bash(grep -v \"^$\")",
+      "Bash(docker restart:*)",
+      "Bash(docker cp:*)"
+    ]
+  }
+}

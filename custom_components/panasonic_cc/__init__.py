@@ -1,5 +1,6 @@
 """Platform for the Panasonic Comfort Cloud."""
 
+import datetime as dt
 import logging
 from typing import Dict
 
@@ -9,12 +10,16 @@ import voluptuous as vol
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import Store
 from homeassistant.loader import async_get_integration
 from aio_panasonic_comfort_cloud import ApiClient
-from aioaquarea import Client as AquareaApiClient, AquareaEnvironment
+from aioaquarea import Client as AquareaApiClient
+
+_AQUAREA_TOKEN_STORE_VERSION = 1
 
 from .const import (
     CONF_UPDATE_INTERVAL_VERSION,
@@ -60,18 +65,81 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
-AQUAREA_DEMO = False
+def _aquarea_token_store(hass: HomeAssistant, entry_id: str) -> Store:
+    return Store(hass, _AQUAREA_TOKEN_STORE_VERSION, f"panasonic_cc_aquarea_token_{entry_id}")
 
 
-def setup(hass, config):
-    pass
+async def _save_aquarea_token(hass: HomeAssistant, entry_id: str, client: AquareaApiClient) -> None:
+    """Persist Aquarea auth token to HA storage so it survives restarts."""
+    s = client._settings
+    if not s.access_token:
+        return
+    await _aquarea_token_store(hass, entry_id).async_save({
+        "access_token": s.access_token,
+        "refresh_token": s.refresh_token,
+        "expires_at": s.expires_at,
+        "scope": s.scope,
+        "client_id": s.clientId,
+    })
+
+
+async def _aquarea_login(hass: HomeAssistant, entry_id: str, client: AquareaApiClient) -> None:
+    """Login to Aquarea, trying stored token → refresh → full login in that order."""
+    stored = await _aquarea_token_store(hass, entry_id).async_load()
+
+    if stored and stored.get("access_token"):
+        # Restore token into the client so is_logged works correctly
+        client._settings.set_token(
+            stored["access_token"],
+            stored.get("refresh_token"),
+            stored.get("expires_at"),
+            stored.get("scope"),
+        )
+        if stored.get("client_id"):
+            client._settings.clientId = stored["client_id"]
+        client._api_client.access_token = stored["access_token"]
+        if stored.get("expires_at"):
+            client._api_client.token_expiration = dt.datetime.fromtimestamp(
+                stored["expires_at"], tz=dt.timezone.utc
+            )
+
+        if client.is_logged:
+            _LOGGER.debug("Aquarea: stored token still valid, skipping full login")
+            await client._app_version.init()
+            client._last_login = dt.datetime.now()
+            await _save_aquarea_token(hass, entry_id, client)
+            return
+
+        # Token expired — try cheap refresh before full OAuth
+        if stored.get("refresh_token") and stored.get("scope"):
+            try:
+                _LOGGER.debug("Aquarea: stored token expired, attempting token refresh")
+                await client._app_version.init()
+                await client._authenticator.refresh_token()
+                await client._authenticator._retrieve_client_acc()
+                client._api_client.access_token = client._settings.access_token
+                if client._settings.expires_at:
+                    client._api_client.token_expiration = dt.datetime.fromtimestamp(
+                        client._settings.expires_at, tz=dt.timezone.utc
+                    )
+                client._last_login = dt.datetime.now()
+                _LOGGER.debug("Aquarea: token refreshed successfully")
+                await _save_aquarea_token(hass, entry_id, client)
+                return
+            except Exception as err:
+                _LOGGER.warning("Aquarea: token refresh failed (%s), falling back to full login", err)
+
+    _LOGGER.debug("Aquarea: performing full login")
+    await client.login()
+    await _save_aquarea_token(hass, entry_id, client)
 
 
 async def async_setup(hass: HomeAssistant, config: Dict) -> bool:
-    """Set up the Garo Wallbox component."""
+    """Set up the Panasonic Comfort Cloud component."""
 
     hass.data.setdefault(DOMAIN, {})
     integration = await async_get_integration(hass, DOMAIN)
+
     _LOGGER.info(STARTUP, integration.version)
     return True
 
@@ -80,9 +148,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Establish connection with Comfort Cloud."""
 
     conf = entry.data
-    if PANASONIC_DEVICES not in hass.data:
-        hass.data[PANASONIC_DEVICES] = []
-
     username = conf[CONF_USERNAME]
     password = conf[CONF_PASSWORD]
     enable_daily_energy_sensor = entry.options.get(
@@ -118,6 +183,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 f"Setting default energy fetch interval to {DEFAULT_ENERGY_FETCH_INTERVAL}"
             )
         hass.config_entries.async_update_entry(entry, data=updated_config)
+        conf = entry.data
 
     if len(devices) == 0 and not api.has_unknown_devices:
         _LOGGER.error("Could not find any Panasonic Comfort Cloud Heat Pumps")
@@ -140,41 +206,46 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         except Exception as e:
             _LOGGER.warning(f"Failed to setup device: {device.name} ({e})", exc_info=e)
 
-    if api.has_unknown_devices or AQUAREA_DEMO:
+    if api.has_unknown_devices:
         try:
-
-            if not AQUAREA_DEMO:
-                aquarea_api_client = AquareaApiClient(client, username, password)
-                await aquarea_api_client.login()
-            else:
-                aquarea_api_client = AquareaApiClient(
-                    client, environment=AquareaEnvironment.DEMO
-                )
-                aquarea_api_client._access_token = "dummy"
-                aquarea_api_client._token_expiration = None
+            aquarea_api_client = AquareaApiClient(client, username, password)
+            await _aquarea_login(hass, entry.entry_id, aquarea_api_client)
             aquarea_devices = await aquarea_api_client.get_devices()
             for aquarea_device in aquarea_devices:
                 try:
+                    async def _save_token() -> None:
+                        await _save_aquarea_token(hass, entry.entry_id, aquarea_api_client)
+
                     aquarea_device_coordinator = AquareaDeviceCoordinator(
-                        hass, conf, aquarea_api_client, aquarea_device
+                        hass, conf, aquarea_api_client, aquarea_device,
+                        on_token_saved=_save_token,
                     )
                     await aquarea_device_coordinator.async_config_entry_first_refresh()
                     aquarea_coordinators.append(aquarea_device_coordinator)
+                except ConfigEntryNotReady:
+                    raise
                 except Exception as e:
                     _LOGGER.warning(
                         f"Failed to setup Aquarea device: {aquarea_device.name} ({e})",
                         exc_info=e,
                     )
+        except ConfigEntryNotReady:
+            raise
         except Exception as e:
             _LOGGER.warning(f"Failed to setup Aquarea: {e}", exc_info=e)
 
     hass.data[DOMAIN][DATA_COORDINATORS] = data_coordinators
     hass.data[DOMAIN][ENERGY_COORDINATORS] = energy_coordinators
     hass.data[DOMAIN][AQUAREA_COORDINATORS] = aquarea_coordinators
-    await asyncio.gather(
+    energy_results = await asyncio.gather(
         *(data.async_config_entry_first_refresh() for data in energy_coordinators),
         return_exceptions=True,
     )
+    for idx, result in enumerate(energy_results):
+        if isinstance(result, Exception):
+            _LOGGER.warning(
+                "Energy coordinator %d first refresh failed: %s", idx, result
+            )
 
     await hass.config_entries.async_forward_entry_setups(entry, COMPONENT_TYPES)
     return True

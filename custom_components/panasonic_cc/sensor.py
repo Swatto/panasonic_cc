@@ -1,15 +1,22 @@
-from typing import Callable, Any
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 import logging
+from typing import Any, Self
 
-from homeassistant.const import UnitOfTemperature, EntityCategory
+from homeassistant.const import UnitOfTemperature, UnitOfEnergy, EntityCategory
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
     SensorDeviceClass,
     SensorEntityDescription,
+    SensorExtraStoredData,
 )
+from homeassistant.core import callback
+from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util import dt as dt_util
 
+import aioaquarea
 from aio_panasonic_comfort_cloud import (
     PanasonicDevice,
     PanasonicDeviceEnergy,
@@ -188,6 +195,111 @@ AQUAREA_OUTSIDE_TEMPERATURE_DESCRIPTION = AquareaSensorEntityDescription(
 )
 
 
+@dataclass(frozen=True, kw_only=True)
+class AquareaEnergyConsumptionSensorDescription(SensorEntityDescription):
+    consumption_type: aioaquarea.ConsumptionType
+    exists_fn: Callable[[AquareaDeviceCoordinator], bool] = lambda _: True
+
+
+ACCUMULATED_ENERGY_SENSORS = [
+    AquareaEnergyConsumptionSensorDescription(
+        key="heating_accumulated_energy_consumption",
+        translation_key="heating_accumulated_energy_consumption",
+        name="Heating Accumulated Consumption",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+        consumption_type=aioaquarea.ConsumptionType.HEAT,
+    ),
+    AquareaEnergyConsumptionSensorDescription(
+        key="cooling_accumulated_energy_consumption",
+        translation_key="cooling_accumulated_energy_consumption",
+        name="Cooling Accumulated Consumption",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+        consumption_type=aioaquarea.ConsumptionType.COOL,
+        exists_fn=lambda coord: any(
+            zone.cool_mode for zone in coord.device.zones.values()
+        ),
+    ),
+    AquareaEnergyConsumptionSensorDescription(
+        key="tank_accumulated_energy_consumption",
+        translation_key="tank_accumulated_energy_consumption",
+        name="Tank Accumulated Consumption",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+        consumption_type=aioaquarea.ConsumptionType.WATER_TANK,
+        exists_fn=lambda coord: coord.device.has_tank,
+    ),
+    AquareaEnergyConsumptionSensorDescription(
+        key="accumulated_energy_consumption",
+        translation_key="accumulated_energy_consumption",
+        name="Accumulated Consumption",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+        consumption_type=aioaquarea.ConsumptionType.TOTAL,
+    ),
+]
+
+ENERGY_SENSORS = [
+    AquareaEnergyConsumptionSensorDescription(
+        key="heating_energy_consumption",
+        translation_key="heating_energy_consumption",
+        name="Heating Consumption",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+        consumption_type=aioaquarea.ConsumptionType.HEAT,
+        entity_registry_enabled_default=False,
+    ),
+    AquareaEnergyConsumptionSensorDescription(
+        key="tank_energy_consumption",
+        translation_key="tank_energy_consumption",
+        name="Tank Consumption",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+        consumption_type=aioaquarea.ConsumptionType.WATER_TANK,
+        exists_fn=lambda coord: coord.device.has_tank,
+        entity_registry_enabled_default=False,
+    ),
+    AquareaEnergyConsumptionSensorDescription(
+        key="cooling_energy_consumption",
+        translation_key="cooling_energy_consumption",
+        name="Cooling Consumption",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+        consumption_type=aioaquarea.ConsumptionType.COOL,
+        exists_fn=lambda coord: any(
+            zone.cool_mode for zone in coord.device.zones.values()
+        ),
+        entity_registry_enabled_default=False,
+    ),
+    AquareaEnergyConsumptionSensorDescription(
+        key="energy_consumption",
+        translation_key="energy_consumption",
+        name="Consumption",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+        consumption_type=aioaquarea.ConsumptionType.TOTAL,
+        entity_registry_enabled_default=False,
+    ),
+]
+
+
 def create_zone_temperature_description(zone: PanasonicDeviceZone):
     return PanasonicSensorEntityDescription(
         key=f"zone-{zone.id}-temperature",
@@ -218,9 +330,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
         entities.append(
             PanasonicSensorEntity(coordinator, INSIDE_TEMPERATURE_DESCRIPTION)
         )
-        entities.append(
-            PanasonicSensorEntity(coordinator, OUTSIDE_TEMPERATURE_DESCRIPTION)
-        )
+        if coordinator.device.parameters.outside_temperature is not None:
+            entities.append(
+                PanasonicSensorEntity(coordinator, OUTSIDE_TEMPERATURE_DESCRIPTION)
+            )
         entities.append(
             PanasonicSensorEntity(coordinator, LAST_UPDATE_TIME_DESCRIPTION)
         )
@@ -255,10 +368,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     for coordinator in aquarea_coordinators:
         device = coordinator.device
-        # Temperatura exterior
+        # Temperature sensors (description-based)
         entities.append(AquareaSensorEntity(coordinator, AQUAREA_OUTSIDE_TEMPERATURE_DESCRIPTION))
-        # Temperatura del tanque
-        if hasattr(device, "tank_temperature"):
+        if device.has_tank and device.tank is not None:
             tank_temp_desc = AquareaSensorEntityDescription(
                 key="tank_temperature",
                 translation_key="tank_temperature",
@@ -267,27 +379,26 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 device_class=SensorDeviceClass.TEMPERATURE,
                 state_class=SensorStateClass.MEASUREMENT,
                 native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-                get_state=lambda dev: getattr(dev, "tank_temperature", None),
-                is_available=lambda dev: getattr(dev, "tank_temperature", None) is not None,
+                get_state=lambda dev: dev.tank.temperature if dev.tank else None,
+                is_available=lambda dev: dev.has_tank and dev.tank is not None,
             )
             entities.append(AquareaSensorEntity(coordinator, tank_temp_desc))
-        # Temperaturas de zonas
-        if hasattr(device, "zones"):
-            for zone in getattr(device, "zones", []):
-                if hasattr(zone, "temperature"):
-                    zone_temp_desc = AquareaSensorEntityDescription(
-                        key=f"zone_{getattr(zone, 'id', 'x')}_temperature",
-                        translation_key=f"zone_{getattr(zone, 'id', 'x')}_temperature",
-                        name=f"Zone {getattr(zone, 'name', 'X')} Temperature",
-                        icon="mdi:thermometer",
-                        device_class=SensorDeviceClass.TEMPERATURE,
-                        state_class=SensorStateClass.MEASUREMENT,
-                        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-                        get_state=lambda dev, z=zone: getattr(z, "temperature", None),
-                        is_available=lambda dev, z=zone: getattr(z, "temperature", None) is not None,
-                    )
-                    entities.append(AquareaSensorEntity(coordinator, zone_temp_desc))
-        # Flow temperature
+        for zone in device.zones.values():
+            if zone.heat_max is None:
+                # Zone appears in device listing but has no live status data — skip.
+                continue
+            zone_temp_desc = AquareaSensorEntityDescription(
+                key=f"zone_{zone.zone_id}_temperature",
+                translation_key="zone_temperature",
+                name=f"{zone.name} Temperature",
+                icon="mdi:thermometer",
+                device_class=SensorDeviceClass.TEMPERATURE,
+                state_class=SensorStateClass.MEASUREMENT,
+                native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+                get_state=lambda dev, zid=zone.zone_id: dev.zones[zid].temperature if zid in dev.zones else None,
+                is_available=lambda dev, zid=zone.zone_id: zid in dev.zones,
+            )
+            entities.append(AquareaSensorEntity(coordinator, zone_temp_desc))
         if hasattr(device, "flow_temperature"):
             flow_temp_desc = AquareaSensorEntityDescription(
                 key="flow_temperature",
@@ -301,7 +412,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 is_available=lambda dev: getattr(dev, "flow_temperature", None) is not None,
             )
             entities.append(AquareaSensorEntity(coordinator, flow_temp_desc))
-        # Return temperature
         if hasattr(device, "return_temperature"):
             return_temp_desc = AquareaSensorEntityDescription(
                 key="return_temperature",
@@ -315,7 +425,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 is_available=lambda dev: getattr(dev, "return_temperature", None) is not None,
             )
             entities.append(AquareaSensorEntity(coordinator, return_temp_desc))
-        # Estado del compresor
         if hasattr(device, "compressor_status"):
             comp_desc = AquareaSensorEntityDescription(
                 key="compressor_status",
@@ -326,81 +435,33 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 is_available=lambda dev: getattr(dev, "compressor_status", None) is not None,
             )
             entities.append(AquareaSensorEntity(coordinator, comp_desc))
-        # Consumo energético
-        if hasattr(device, "energy_consumption"):
-            energy_desc = AquareaSensorEntityDescription(
-                key="energy_consumption",
-                translation_key="energy_consumption",
-                name="Energy Consumption",
-                icon="mdi:flash",
-                device_class=SensorDeviceClass.ENERGY,
-                state_class=SensorStateClass.TOTAL_INCREASING,
-                native_unit_of_measurement="kWh",
-                get_state=lambda dev: getattr(dev, "energy_consumption", None),
-                is_available=lambda dev: getattr(dev, "energy_consumption", None) is not None,
-            )
-            entities.append(AquareaSensorEntity(coordinator, energy_desc))
-        # Códigos de error / alarmas
-        if hasattr(device, "error_code"):
-            error_desc = AquareaSensorEntityDescription(
-                key="error_code",
-                translation_key="error_code",
-                name="Error Code",
-                icon="mdi:alert",
-                get_state=lambda dev: getattr(dev, "error_code", None),
-                is_available=lambda dev: getattr(dev, "error_code", None) is not None,
-            )
-            entities.append(AquareaSensorEntity(coordinator, error_desc))
-        if hasattr(device, "alarm_code"):
-            alarm_desc = AquareaSensorEntityDescription(
-                key="alarm_code",
-                translation_key="alarm_code",
-                name="Alarm Code",
-                icon="mdi:alert-octagon",
-                get_state=lambda dev: getattr(dev, "alarm_code", None),
-                is_available=lambda dev: getattr(dev, "alarm_code", None) is not None,
-            )
-            entities.append(AquareaSensorEntity(coordinator, alarm_desc))
+        error_desc = AquareaSensorEntityDescription(
+            key="error_code",
+            translation_key="error_code",
+            name="Error Code",
+            icon="mdi:alert",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            get_state=lambda dev: dev.current_error.error_code if dev.current_error else "none",
+            is_available=lambda dev: True,
+        )
+        entities.append(AquareaSensorEntity(coordinator, error_desc))
 
-        # Pump Duty
-        if hasattr(device, "pump_duty"):
-            pump_desc = AquareaSensorEntityDescription(
-                key="pump_duty",
-                translation_key="pump_duty",
-                name="Pump Duty",
-                icon="mdi:pump",
-                entity_category=EntityCategory.DIAGNOSTIC,
-                get_state=lambda dev: getattr(getattr(dev, "pump_duty", None), "name", getattr(dev, "pump_duty", None)),
-                is_available=lambda dev: getattr(dev, "pump_duty", None) is not None,
-            )
-            entities.append(AquareaSensorEntity(coordinator, pump_desc))
-            
-        # Current Direction
-        if hasattr(device, "current_direction"):
-            dir_desc = AquareaSensorEntityDescription(
-                key="current_direction",
-                translation_key="current_direction",
-                name="Current Direction",
-                icon="mdi:directions-fork",
-                entity_category=EntityCategory.DIAGNOSTIC,
-                get_state=lambda dev: getattr(getattr(dev, "current_direction", None), "name", getattr(dev, "current_direction", None)),
-                is_available=lambda dev: getattr(dev, "current_direction", None) is not None,
-            )
-            entities.append(AquareaSensorEntity(coordinator, dir_desc))
-            
-        # Device Mode Status
-        if hasattr(device, "device_mode_status"):
-            mode_desc = AquareaSensorEntityDescription(
-                key="device_mode_status",
-                translation_key="device_mode_status",
-                name="Device Mode Status",
-                icon="mdi:list-status",
-                entity_category=EntityCategory.DIAGNOSTIC,
-                get_state=lambda dev: getattr(getattr(dev, "device_mode_status", None), "name", getattr(dev, "device_mode_status", None)),
-                is_available=lambda dev: getattr(dev, "device_mode_status", None) is not None,
-            )
-            entities.append(AquareaSensorEntity(coordinator, mode_desc))
-            
+        # Concrete sensors (from wpatrik14)
+        entities.append(AquareaPumpDirectionSensor(coordinator))
+        entities.append(AquareaPumpStatusSensor(coordinator))
+
+        # Energy sensors
+        entities.extend([
+            AquareaEnergyAccumulatedConsumptionSensor(desc, coordinator)
+            for desc in ACCUMULATED_ENERGY_SENSORS
+            if desc.exists_fn(coordinator)
+        ])
+        entities.extend([
+            AquareaEnergyConsumptionSensor(desc, coordinator)
+            for desc in ENERGY_SENSORS
+            if desc.exists_fn(coordinator)
+        ])
+
     async_add_entities(entities)
 
 
@@ -458,7 +519,11 @@ class PanasonicEnergySensorEntity(PanasonicEnergyEntity, SensorEntity):
 
     def _async_update_attrs(self) -> None:
         """Update the attributes of the sensor."""
-        value = self.entity_description.get_state(self.coordinator.energy)
+        energy = self.coordinator.energy
+        if energy is None:
+            self._attr_available = False
+            return
+        value = self.entity_description.get_state(energy)
         self._attr_available = value is not None
         self._attr_native_value = value
 
@@ -495,3 +560,289 @@ class AquareaSensorEntity(AquareaDataEntity, SensorEntity):
             self._attr_native_value = self.entity_description.get_state(
                 self.coordinator.device
             )
+
+
+class AquareaPumpDirectionSensor(AquareaDataEntity, SensorEntity):
+    """Sensor showing the current pump direction."""
+
+    def __init__(self, coordinator: AquareaDeviceCoordinator) -> None:
+        super().__init__(coordinator, "direction")
+        self._attr_icon = "mdi:compass"
+
+    def _async_update_attrs(self) -> None:
+        self._attr_native_value = self.coordinator.device.current_direction.name
+
+
+class AquareaPumpStatusSensor(AquareaDataEntity, SensorEntity):
+    """Sensor showing if the pump is on or off."""
+
+    def __init__(self, coordinator: AquareaDeviceCoordinator) -> None:
+        super().__init__(coordinator, "pump_status")
+        self._attr_icon = "mdi:pump"
+
+    def _async_update_attrs(self) -> None:
+        self._attr_native_value = (
+            "On" if self.coordinator.device.pump_duty == 1 else "Off"
+        )
+
+
+# --- Energy sensor state restore helpers ---
+
+@dataclass
+class AquareaSensorExtraStoredData(SensorExtraStoredData):
+    period_being_processed: datetime | None = None
+
+    @classmethod
+    def from_dict(cls, restored: dict[str, Any]) -> Self:
+        sensor_data = super().from_dict(restored)
+        return cls(
+            native_value=sensor_data.native_value,
+            native_unit_of_measurement=sensor_data.native_unit_of_measurement,
+            period_being_processed=(
+                dt_util.parse_datetime(restored["period_being_processed"])
+                if "period_being_processed" in restored
+                else None
+            ),
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        data = super().as_dict()
+        if self.period_being_processed is not None:
+            data["period_being_processed"] = dt_util.as_local(
+                self.period_being_processed
+            ).isoformat()
+        return data
+
+
+@dataclass
+class AquareaAccumulatedSensorExtraStoredData(AquareaSensorExtraStoredData):
+    accumulated_period_being_processed: float | None = None
+
+    @classmethod
+    def from_dict(cls, restored: dict[str, Any]) -> Self:
+        sensor_data = super().from_dict(restored)
+        return cls(
+            native_value=sensor_data.native_value,
+            native_unit_of_measurement=sensor_data.native_unit_of_measurement,
+            period_being_processed=sensor_data.period_being_processed,
+            accumulated_period_being_processed=restored.get(
+                "accumulated_period_being_processed"
+            ),
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        data = super().as_dict()
+        data["accumulated_period_being_processed"] = (
+            self.accumulated_period_being_processed
+        )
+        return data
+
+
+class AquareaEnergyAccumulatedConsumptionSensor(
+    AquareaDataEntity, SensorEntity, RestoreEntity
+):
+    """Accumulated (month-to-date) energy consumption sensor."""
+
+    entity_description: AquareaEnergyConsumptionSensorDescription
+
+    def __init__(
+        self,
+        description: AquareaEnergyConsumptionSensorDescription,
+        coordinator: AquareaDeviceCoordinator,
+    ) -> None:
+        self.entity_description = description
+        self._period_being_processed: datetime | None = None
+        self._accumulated_period_being_processed: float | None = None
+        super().__init__(coordinator, description.key)
+
+    async def async_added_to_hass(self) -> None:
+        sensor_data = await self.async_get_last_sensor_data()
+        if sensor_data is not None:
+            self._attr_native_value = sensor_data.native_value
+            self._period_being_processed = sensor_data.period_being_processed
+            self._accumulated_period_being_processed = (
+                sensor_data.accumulated_period_being_processed
+            )
+        if self._attr_native_value is None:
+            self._attr_native_value = 0
+        if self._accumulated_period_being_processed is None:
+            self._accumulated_period_being_processed = 0
+        await super().async_added_to_hass()
+
+    @property
+    def extra_restore_state_data(self) -> AquareaAccumulatedSensorExtraStoredData:
+        return AquareaAccumulatedSensorExtraStoredData(
+            self.native_value,
+            self.native_unit_of_measurement,
+            self._period_being_processed,
+            self._accumulated_period_being_processed,
+        )
+
+    async def async_get_last_sensor_data(
+        self,
+    ) -> AquareaAccumulatedSensorExtraStoredData | None:
+        if (restored := await self.async_get_last_extra_data()) is None:
+            return None
+        return AquareaAccumulatedSensorExtraStoredData.from_dict(restored.as_dict())
+
+    def _async_update_attrs(self) -> None:
+        month_consumption = self.coordinator.month_consumption
+        if not month_consumption:
+            return
+
+        now = dt_util.now()
+        month_heat = month_cool = month_tank = month_total = 0.0
+        for c in month_consumption:
+            try:
+                dt_str = c.data_time
+                if not dt_str:
+                    continue
+                item_date = None
+                for fmt in ("%Y%m%d", "%Y-%m-%d"):
+                    try:
+                        item_date = datetime.strptime(dt_str, fmt).date()
+                        break
+                    except ValueError:
+                        continue
+                if item_date is None:
+                    continue
+                if item_date <= now.date():
+                    month_heat += float(c.heat_consumption or 0.0)
+                    month_cool += float(c.cool_consumption or 0.0)
+                    month_tank += float(c.tank_consumption or 0.0)
+                    try:
+                        month_total += float(c.total_consumption or 0.0)
+                    except (ValueError, TypeError):
+                        month_total += month_heat + month_cool + month_tank
+            except (ValueError, TypeError):
+                _LOGGER.debug("Failed to parse month consumption item")
+
+        ctype = self.entity_description.consumption_type
+        reported_val = None
+        if ctype == aioaquarea.ConsumptionType.HEAT:
+            reported_val = month_heat
+        elif ctype == aioaquarea.ConsumptionType.COOL:
+            reported_val = month_cool
+        elif ctype == aioaquarea.ConsumptionType.WATER_TANK:
+            reported_val = month_tank
+        elif ctype == aioaquarea.ConsumptionType.TOTAL:
+            reported_val = month_total
+        if reported_val is not None:
+            month_start = now.replace(
+                day=1, hour=0, minute=0, second=0, microsecond=0
+            )
+            self._period_being_processed = month_start
+            self._attr_native_value = reported_val
+
+
+class AquareaEnergyConsumptionSensor(
+    AquareaDataEntity, SensorEntity, RestoreEntity
+):
+    """Hourly energy consumption sensor."""
+
+    entity_description: AquareaEnergyConsumptionSensorDescription
+
+    def __init__(
+        self,
+        description: AquareaEnergyConsumptionSensorDescription,
+        coordinator: AquareaDeviceCoordinator,
+    ) -> None:
+        self.entity_description = description
+        self._period_being_processed: datetime | None = None
+        super().__init__(coordinator, description.key)
+
+    async def async_added_to_hass(self) -> None:
+        sensor_data = await self.async_get_last_sensor_data()
+        if sensor_data is not None:
+            self._attr_native_value = sensor_data.native_value
+            self._period_being_processed = sensor_data.period_being_processed
+        if self._attr_native_value is None:
+            self._attr_native_value = 0
+        await super().async_added_to_hass()
+
+    @property
+    def extra_restore_state_data(self) -> AquareaSensorExtraStoredData:
+        return AquareaSensorExtraStoredData(
+            self.native_value,
+            self.native_unit_of_measurement,
+            self._period_being_processed,
+        )
+
+    async def async_get_last_sensor_data(
+        self,
+    ) -> AquareaSensorExtraStoredData | None:
+        if (restored := await self.async_get_last_extra_data()) is None:
+            return None
+        return AquareaSensorExtraStoredData.from_dict(restored.as_dict())
+
+    def _async_update_attrs(self) -> None:
+        day_consumption = self.coordinator.day_consumption
+        if not day_consumption:
+            return
+
+        now = dt_util.now().replace(minute=0, second=0, microsecond=0)
+        previous_hour_dt = now - timedelta(hours=1)
+        target_hour = previous_hour_dt.hour
+        target_date = previous_hour_dt.date()
+        current_entry = None
+
+        for c in day_consumption:
+            dt_str = c.data_time
+            if not dt_str:
+                continue
+            try:
+                item_dt = None
+                for fmt in ("%Y%m%d %H", "%Y-%m-%d %H"):
+                    try:
+                        item_dt = datetime.strptime(dt_str, fmt)
+                        break
+                    except ValueError:
+                        continue
+                if (
+                    item_dt
+                    and item_dt.date() == target_date
+                    and item_dt.hour == target_hour
+                ):
+                    current_entry = c
+                    break
+            except (ValueError, TypeError):
+                pass
+
+        if current_entry is None:
+            for c in reversed(day_consumption):
+                dt_str = c.data_time
+                if not dt_str:
+                    continue
+                try:
+                    for fmt in ("%Y%m%d %H", "%Y-%m-%d %H"):
+                        try:
+                            item_dt = datetime.strptime(dt_str, fmt)
+                            current_entry = c
+                            break
+                        except ValueError:
+                            continue
+                    if current_entry:
+                        break
+                except (ValueError, TypeError):
+                    pass
+
+        if current_entry:
+            ctype = self.entity_description.consumption_type
+            reported_val = None
+            if ctype == aioaquarea.ConsumptionType.HEAT:
+                reported_val = float(current_entry.heat_consumption or 0.0)
+            elif ctype == aioaquarea.ConsumptionType.COOL:
+                reported_val = float(current_entry.cool_consumption or 0.0)
+            elif ctype == aioaquarea.ConsumptionType.WATER_TANK:
+                reported_val = float(current_entry.tank_consumption or 0.0)
+            elif ctype == aioaquarea.ConsumptionType.TOTAL:
+                try:
+                    reported_val = float(current_entry.total_consumption or 0.0)
+                except (ValueError, TypeError):
+                    reported_val = float(
+                        (current_entry.heat_consumption or 0.0)
+                        + (current_entry.cool_consumption or 0.0)
+                        + (current_entry.tank_consumption or 0.0)
+                    )
+            self._period_being_processed = now
+            self._attr_native_value = reported_val

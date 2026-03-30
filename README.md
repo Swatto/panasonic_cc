@@ -1,5 +1,8 @@
 # Panasonic Comfort Cloud - HomeAssistant Component
 
+> [!WARNING]
+> **Unstable / Personal fork** — This is not a stable release. It is maintained for personal use only and is not intended for general consumption. Use at your own risk.
+
 [![GitHub Release][releases-shield]][releases]
 [![License][license-shield]](LICENSE)
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
@@ -16,9 +19,9 @@ This is a custom component to allow control of Panasonic Comfort Cloud devices i
 > For optimal operation, it is also recommended that you use separate accounts for Home Assistant and the Comfort Cloud App.
 
 <p>
-    <img src="https://github.com/sockless-coding/panasonic_cc/raw/master/doc/controls.png" alt="Example controls" style="vertical-align: top;max-width:100%" align="top" />
-    <img src="https://github.com/sockless-coding/panasonic_cc/raw/master/doc/sensors.png" alt="Example sensors" style="vertical-align: top;max-width:100%" align="top" />
-    <img src="https://github.com/sockless-coding/panasonic_cc/raw/master/doc/diagnostics.png" alt="Example diagnostics" style="vertical-align: top;max-width:100%" align="top" />
+    <img src="https://github.com/Swatto/panasonic_cc/raw/master/doc/controls.png" alt="Example controls" style="vertical-align: top;max-width:100%" align="top" />
+    <img src="https://github.com/Swatto/panasonic_cc/raw/master/doc/sensors.png" alt="Example sensors" style="vertical-align: top;max-width:100%" align="top" />
+    <img src="https://github.com/Swatto/panasonic_cc/raw/master/doc/diagnostics.png" alt="Example diagnostics" style="vertical-align: top;max-width:100%" align="top" />
 </p>
 
 
@@ -51,11 +54,69 @@ Clone or copy this repository and copy the folder 'custom_components/panasonic_c
 
 Once installed, the Panasonic Comfort Cloud integration can be configured via the Home Assistant integration interface where it will let you enter your Panasonic ID and Password.
 
-![Setup](https://github.com/sockless-coding/panasonic_cc/raw/master/doc/setup.png)
+![Setup](https://github.com/Swatto/panasonic_cc/raw/master/doc/setup.png)
 
 After inital setup, the following options are available:
 
-![Setup](https://github.com/sockless-coding/panasonic_cc/raw/master/doc/configuration.png)
+![Setup](https://github.com/Swatto/panasonic_cc/raw/master/doc/configuration.png)
+
+## Development
+
+### Prerequisites
+
+This project uses [uv](https://docs.astral.sh/uv/) for Python tooling.
+
+```bash
+uv sync --dev          # install dependencies
+uv run pytest tests/   # run unit tests
+uv run mypy custom_components/panasonic_cc/ --ignore-missing-imports
+```
+
+### Testing in Home Assistant (Docker)
+
+The safest way to test changes against a real device is with a disposable HA instance in Docker.
+
+**1. Start a test instance**
+
+```bash
+docker run -d --name ha-test \
+  -p 8123:8123 \
+  -v ./ha-test-config:/config \
+  ghcr.io/home-assistant/home-assistant:stable
+```
+
+**2. Copy the integration in**
+
+```bash
+docker cp custom_components/panasonic_cc ha-test:/config/custom_components/
+docker restart ha-test
+```
+
+**3. Configure**
+
+Go to `http://localhost:8123`, complete the HA onboarding, then add the integration via **Settings > Devices & Services > Add Integration > Panasonic Comfort Cloud**. Enter your Panasonic credentials.
+
+**4. Iterate**
+
+When you make code changes, copy and restart:
+
+```bash
+docker cp custom_components/panasonic_cc ha-test:/config/custom_components/
+docker restart ha-test
+```
+
+**5. Cleanup**
+
+```bash
+docker stop ha-test && docker rm ha-test
+rm -rf ./ha-test-config
+```
+
+> [!WARNING]
+> **Rate limits:** Panasonic aggressively blocks clients that authenticate too frequently. Space out restarts (a few minutes apart is fine). Never automate restart loops against the real API.
+
+> [!TIP]
+> Use **Developer Tools > States** in the HA UI to inspect entity attributes, and **Developer Tools > Services** to test calling entity services (e.g., `switch.turn_on`).
 
 ## Known issues
 
@@ -71,9 +132,7 @@ This integration uses the following modules:
 
 
 
-## Support Development
-- :coffee:&nbsp;&nbsp;[Buy me a coffee](https://www.buymeacoffee.com/sockless)
 
-[license-shield]: https://img.shields.io/github/license/sockless-coding/panasonic_cc.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/release/sockless-coding/panasonic_cc.svg?style=for-the-badge
-[releases]: https://github.com/sockless-coding/panasonic_cc/releases
+[license-shield]: https://img.shields.io/github/license/Swatto/panasonic_cc.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/release/Swatto/panasonic_cc.svg?style=for-the-badge
+[releases]: https://github.com/Swatto/panasonic_cc/releases

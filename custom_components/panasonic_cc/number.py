@@ -18,7 +18,7 @@ from aio_panasonic_comfort_cloud import (
 )
 
 from . import DOMAIN
-from .const import DATA_COORDINATORS
+from .const import DATA_COORDINATORS, AQUAREA_COORDINATORS
 from .coordinator import PanasonicDeviceCoordinator, AquareaDeviceCoordinator
 from .base import PanasonicDataEntity
 
@@ -51,7 +51,7 @@ def create_zone_damper_description(zone: PanasonicDeviceZone):
 async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
     devices = []
     data_coordinators: list[PanasonicDeviceCoordinator] = hass.data[DOMAIN][DATA_COORDINATORS]
-    aquarea_coordinators = hass.data[DOMAIN].get("aquarea_coordinators", [])
+    aquarea_coordinators = hass.data[DOMAIN].get(AQUAREA_COORDINATORS, [])
 
     for data_coordinator in data_coordinators:
         if data_coordinator.device.has_zones:
@@ -95,7 +95,7 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
             devices.append(PanasonicNumberEntity(coordinator, tank_desc))
         # Zone temperatures
         if hasattr(device, "zones"):
-            for zone in getattr(device, "zones", []):
+            for zone in getattr(device, "zones", {}).values():
                 if hasattr(zone, "has_target_temperature") and getattr(zone, "has_target_temperature", False):
                     zone_desc = PanasonicNumberEntityDescription(
                         key=f"zone_{getattr(zone, 'id', 'x')}_target_temp",

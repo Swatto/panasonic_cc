@@ -117,7 +117,59 @@
           "Down": "Bottom",
           "Swing": "Swing"
         }
+      },
+      "quiet_mode": {
+        "name": "Quiet Mode",
+        "state": {
+          "off": "Off",
+          "level1": "Level 1",
+          "level2": "Level 2",
+          "level3": "Level 3"
+        }
+      },
+      "powerful_time": {
+        "name": "Powerful Time",
+        "state": {
+          "off": "Off",
+          "on-30m": "30 minutes",
+          "on-60m": "60 minutes",
+          "on-90m": "90 minutes"
+        }
       }
+    },
+    "switch": {
+      "force_dhw": { "name": "Force DHW" },
+      "force_heater": { "name": "Force Heater" },
+      "holiday_timer": { "name": "Holiday Timer" }
+    },
+    "binary_sensor": {
+      "is_on_error": { "name": "Error Status" },
+      "defrost": { "name": "Defrost" }
+    },
+    "button": {
+      "request_defrost": { "name": "Request Defrost" }
+    },
+    "sensor": {
+      "outside_temperature": { "name": "Outside Temperature" },
+      "tank_temperature": { "name": "Tank Temperature" },
+      "zone_temperature": { "name": "Zone Temperature" },
+      "flow_temperature": { "name": "Flow Temperature" },
+      "return_temperature": { "name": "Return Temperature" },
+      "compressor_status": { "name": "Compressor Status" },
+      "error_code": { "name": "Error Code" },
+      "direction": { "name": "Pump Direction" },
+      "pump_status": { "name": "Pump Status" },
+      "heating_accumulated_energy_consumption": { "name": "Heating Accumulated Consumption" },
+      "cooling_accumulated_energy_consumption": { "name": "Cooling Accumulated Consumption" },
+      "tank_accumulated_energy_consumption": { "name": "Tank Accumulated Consumption" },
+      "accumulated_energy_consumption": { "name": "Accumulated Consumption" },
+      "heating_energy_consumption": { "name": "Heating Consumption" },
+      "tank_energy_consumption": { "name": "Tank Consumption" },
+      "cooling_energy_consumption": { "name": "Cooling Consumption" },
+      "energy_consumption": { "name": "Consumption" }
+    },
+    "water_heater": {
+      "tank": { "name": "Tank" }
     }
   },
   "services": {

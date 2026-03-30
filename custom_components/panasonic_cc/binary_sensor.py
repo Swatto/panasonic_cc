@@ -1,8 +1,11 @@
+"""Binary sensors for Aquarea devices."""
+
 import logging
-from dataclasses import dataclass
+
+import aioaquarea
+
 from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
-    BinarySensorEntityDescription,
     BinarySensorDeviceClass,
 )
 from homeassistant.core import HomeAssistant
@@ -14,46 +17,50 @@ from .coordinator import AquareaDeviceCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-@dataclass(frozen=True, kw_only=True)
-class AquareaBinarySensorEntityDescription(BinarySensorEntityDescription):
-    """Describes Aquarea binary sensor entity."""
-    state_func: callable
 
 async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
     entities = []
     aquarea_coordinators = hass.data[DOMAIN].get(AQUAREA_COORDINATORS, [])
 
     for coordinator in aquarea_coordinators:
-        device = coordinator.device
-        if hasattr(device, "is_on_error"):
-            error_desc = AquareaBinarySensorEntityDescription(
-                key="is_on_error",
-                translation_key="is_on_error",
-                name="Error Status",
-                device_class=BinarySensorDeviceClass.PROBLEM,
-                entity_category=EntityCategory.DIAGNOSTIC,
-                state_func=lambda dev: getattr(dev, "is_on_error", False)
-            )
-            entities.append(AquareaBinarySensorEntity(coordinator, error_desc))
+        entities.append(AquareaStatusBinarySensor(coordinator))
+        entities.append(AquareaDefrostBinarySensor(coordinator))
 
     async_add_entities(entities)
 
-class AquareaBinarySensorEntity(AquareaDataEntity, BinarySensorEntity):
-    entity_description: AquareaBinarySensorEntityDescription
 
-    def __init__(
-        self,
-        coordinator: AquareaDeviceCoordinator,
-        description: AquareaBinarySensorEntityDescription,
-    ):
-        self.entity_description = description
-        super().__init__(coordinator, description.key)
+class AquareaStatusBinarySensor(AquareaDataEntity, BinarySensorEntity):
+    """Binary sensor indicating if the Aquarea device is in error state."""
+
+    def __init__(self, coordinator: AquareaDeviceCoordinator) -> None:
+        super().__init__(coordinator, "is_on_error")
+        self._attr_device_class = BinarySensorDeviceClass.PROBLEM
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def is_on(self) -> bool:
-        """Return true if the binary sensor is on."""
-        return self.entity_description.state_func(self.coordinator.device)
+        return self.coordinator.device.is_on_error
 
     def _async_update_attrs(self) -> None:
-        """Update the attributes of the sensor."""
-        self._attr_is_on = self.entity_description.state_func(self.coordinator.device)
+        self._attr_is_on = self.coordinator.device.is_on_error
+
+
+class AquareaDefrostBinarySensor(AquareaDataEntity, BinarySensorEntity):
+    """Binary sensor indicating if the Aquarea device is in defrost mode."""
+
+    def __init__(self, coordinator: AquareaDeviceCoordinator) -> None:
+        super().__init__(coordinator, "defrost")
+        self._attr_device_class = BinarySensorDeviceClass.RUNNING
+
+    @property
+    def icon(self) -> str:
+        return "mdi:snowflake-melt" if self.is_on else "mdi:snowflake-off"
+
+    @property
+    def is_on(self) -> bool:
+        return self.coordinator.device.device_mode_status is aioaquarea.DeviceModeStatus.DEFROST
+
+    def _async_update_attrs(self) -> None:
+        self._attr_is_on = (
+            self.coordinator.device.device_mode_status is aioaquarea.DeviceModeStatus.DEFROST
+        )

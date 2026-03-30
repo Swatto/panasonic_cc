@@ -1,5 +1,8 @@
 """Support for the Panasonic HVAC."""
 
+from __future__ import annotations
+
+import asyncio
 from typing import Callable, Any
 from dataclasses import dataclass
 import logging
@@ -13,12 +16,14 @@ from homeassistant.components.climate import (
     HVACAction,
     HVACMode,
     ATTR_HVAC_MODE,
+    PRESET_COMFORT,
+    PRESET_ECO as HA_PRESET_ECO,
+    PRESET_NONE as HA_PRESET_NONE,
 )
 from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTemperature, ATTR_TEMPERATURE
+from homeassistant.const import UnitOfTemperature, ATTR_TEMPERATURE, PRECISION_WHOLE
 from homeassistant.components.climate.const import ClimateEntityFeature
-
 
 from .base import PanasonicDataEntity, AquareaDataEntity
 from .coordinator import PanasonicDeviceCoordinator, AquareaDeviceCoordinator
@@ -32,7 +37,10 @@ from aioaquarea import (
     OperationStatus as AquareaZoneOperationStatus,
     DeviceAction as AquareaDeviceAction,
     UpdateOperationMode as AquareaUpdateOperationMode,
+    SpecialStatus,
+    DeviceDirection,
 )
+from aioaquarea.errors import RequestFailedError
 
 from .const import (
     SUPPORT_FLAGS,
@@ -47,6 +55,7 @@ from .const import (
     DATA_COORDINATORS,
     AQUAREA_COORDINATORS,
     CONF_USE_PANASONIC_PRESET_NAMES,
+    DEFAULT_USE_PANASONIC_PRESET_NAMES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -57,11 +66,15 @@ class PanasonicClimateEntityDescription(ClimateEntityDescription):
     """Describes a Panasonic climate entity."""
 
 
-@dataclass(frozen=True, kw_only=True)
-class AquareaClimateEntityDescription(ClimateEntityDescription):
-    """Describes a Aquarea climate entity."""
+SPECIAL_STATUS_LOOKUP: dict[str, SpecialStatus | None] = {
+    HA_PRESET_ECO: SpecialStatus.ECO,
+    PRESET_COMFORT: SpecialStatus.COMFORT,
+    HA_PRESET_NONE: None,
+}
+SPECIAL_STATUS_REVERSE_LOOKUP = {v: k for k, v in SPECIAL_STATUS_LOOKUP.items()}
 
-    zone_id: int
+CLIMATE_DELAY_SHORT = 5.0
+CLIMATE_DELAY_LONG = 10.0
 
 
 PANASONIC_CLIMATE_DESCRIPTION = PanasonicClimateEntityDescription(
@@ -109,6 +122,9 @@ def convert_state_to_hvac_action(state: PanasonicDeviceParameters) -> HVACAction
     if state.power == constants.Power.Off:
         return HVACAction.OFF
 
+    if state.target_temperature is None or state.inside_temperature is None:
+        return HVACAction.IDLE
+
     match state.mode:
         case constants.OperationMode.Auto:
             auto_diff = state.target_temperature - state.inside_temperature
@@ -135,45 +151,45 @@ def convert_state_to_hvac_action(state: PanasonicDeviceParameters) -> HVACAction
             )
 
 
-def convert_mode_and_status_to_hvac_mode(
-    mode: AquareaExtendedOperationMode, zone_status: AquareaZoneOperationStatus
+def get_hvac_mode_from_ext_op_mode(
+    mode: AquareaExtendedOperationMode,
+    zone_status: AquareaZoneOperationStatus,
+    device_status: AquareaZoneOperationStatus,
 ) -> HVACMode:
+    """Convert extended operation mode to HVAC mode."""
     if zone_status == AquareaZoneOperationStatus.OFF:
         return HVACMode.OFF
-    match mode:
-        case AquareaExtendedOperationMode.HEAT:
-            return HVACMode.HEAT
-        case AquareaExtendedOperationMode.COOL:
-            return HVACMode.COOL
-        case AquareaExtendedOperationMode.AUTO_COOL:
-            return HVACMode.HEAT_COOL
-        case AquareaExtendedOperationMode.AUTO_HEAT:
-            return HVACMode.HEAT_COOL
-
+    if mode == AquareaExtendedOperationMode.HEAT:
+        return HVACMode.HEAT
+    if mode == AquareaExtendedOperationMode.COOL:
+        return HVACMode.COOL
+    if mode in (AquareaExtendedOperationMode.AUTO_COOL, AquareaExtendedOperationMode.AUTO_HEAT):
+        return HVACMode.AUTO
     return HVACMode.OFF
 
 
-def convert_aquarea_action_to_hvac_action(action: AquareaDeviceAction) -> HVACAction:
-    """Convert device action to HVAC action."""
-    match action:
-        case AquareaDeviceAction.COOLING:
-            return HVACAction.COOLING
-        case AquareaDeviceAction.HEATING:
+def get_hvac_action_from_device_direction(
+    direction: DeviceDirection, hvac_mode: HVACMode
+) -> HVACAction:
+    """Convert device direction to HVAC action."""
+    if direction == DeviceDirection.PUMP:
+        if hvac_mode == HVACMode.HEAT:
             return HVACAction.HEATING
+        if hvac_mode == HVACMode.COOL:
+            return HVACAction.COOLING
     return HVACAction.IDLE
 
 
-def convert_hvac_mode_to_aquarea_operation_mode(
+def get_update_operation_mode_from_hvac_mode(
     mode: HVACMode,
 ) -> AquareaUpdateOperationMode:
     """Convert HVAC mode to update operation mode."""
-    match mode:
-        case HVACMode.HEAT:
-            return AquareaUpdateOperationMode.HEAT
-        case HVACMode.COOL:
-            return AquareaUpdateOperationMode.COOL
-        case HVACMode.HEAT_COOL:
-            return AquareaUpdateOperationMode.AUTO
+    if mode == HVACMode.HEAT:
+        return AquareaUpdateOperationMode.HEAT
+    if mode == HVACMode.COOL:
+        return AquareaUpdateOperationMode.COOL
+    if mode == HVACMode.AUTO:
+        return AquareaUpdateOperationMode.AUTO
     return AquareaUpdateOperationMode.OFF
 
 
@@ -188,7 +204,7 @@ async def async_setup_entry(
         AQUAREA_COORDINATORS
     ]
     use_panasonic_preset_names = entry.options.get(
-        CONF_USE_PANASONIC_PRESET_NAMES, False
+        CONF_USE_PANASONIC_PRESET_NAMES, DEFAULT_USE_PANASONIC_PRESET_NAMES
     )
     for coordinator in data_coordinators:
         entities.append(
@@ -197,17 +213,12 @@ async def async_setup_entry(
             )
         )
     for aquarea_coordinator in aquarea_coordinators:
-        for zone_id in aquarea_coordinator.device.zones:
+        for zone_id, zone in aquarea_coordinator.device.zones.items():
+            if zone.heat_max is None:
+                # Zone appears in device listing but has no live status data — skip.
+                continue
             entities.append(
-                AquareaClimateEntity(
-                    aquarea_coordinator,
-                    AquareaClimateEntityDescription(
-                        zone_id=zone_id,
-                        name=aquarea_coordinator.device.zones.get(zone_id).name,
-                        key=f"zone-{zone_id}-climate",
-                        translation_key=f"zone-{zone_id}-climate",
-                    ),
-                )
+                AquareaClimateEntity(aquarea_coordinator, zone_id)
             )
     async_add_entities(entities)
 
@@ -281,7 +292,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
             ]
 
         super().__init__(coordinator, description.key)
-        _LOGGER.info(f"Registing Climate entity: '{self._attr_unique_id}'")
+        _LOGGER.info("Registering Climate entity: '%s'", self._attr_unique_id)
 
     def _async_update_attrs(self) -> None:
         """Update attributes."""
@@ -395,7 +406,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
                 if "mode" in stored_data
                 else constants.OperationMode.Heat
             )
-        except:
+        except (ValueError, KeyError):
             hvac_mode = constants.OperationMode.Heat
         try:
             eco_mode = (
@@ -403,7 +414,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
                 if "ecoMode" in stored_data
                 else constants.EcoMode.Auto
             )
-        except:
+        except (ValueError, KeyError):
             eco_mode = constants.EcoMode.Auto
         target_temperature = (
             stored_data["targetTemperature"]
@@ -416,7 +427,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
                 if "fanSpeed" in stored_data
                 else constants.FanSpeed.Auto
             )
-        except:
+        except (ValueError, KeyError):
             fan_speed = constants.FanSpeed.Auto
 
         builder.set_hvac_mode(hvac_mode)
@@ -517,108 +528,166 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
 
 
 class AquareaClimateEntity(AquareaDataEntity, ClimateEntity):
-    """Representation of a Aquarea Climate Device."""
+    """Climate entity controlling one zone of an Aquarea heat pump."""
 
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_target_temperature_step = 1
-    _attr_supported_features = (
-        ClimateEntityFeature.TARGET_TEMPERATURE
-        | ClimateEntityFeature.TURN_ON
-        | ClimateEntityFeature.TURN_OFF
-    )
-    entity_description: AquareaClimateEntityDescription
+    _attr_precision = PRECISION_WHOLE
 
     def __init__(
         self,
         coordinator: AquareaDeviceCoordinator,
-        description: AquareaClimateEntityDescription,
-    ):
-        """Initialize the climate entity."""
-        self.entity_description = description
+        zone_id: int,
+    ) -> None:
+        self._zone_id = zone_id
         device = coordinator.device
+        zone = device.zones.get(zone_id)
+
+        self._attr_supported_features = (
+            ClimateEntityFeature.TARGET_TEMPERATURE
+            | ClimateEntityFeature.TURN_ON
+            | ClimateEntityFeature.TURN_OFF
+        )
+        if device.support_special_status:
+            self._attr_supported_features |= ClimateEntityFeature.PRESET_MODE
+            self._attr_preset_modes = list(SPECIAL_STATUS_LOOKUP.keys())
+            self._attr_preset_mode = SPECIAL_STATUS_REVERSE_LOOKUP.get(
+                device.special_status
+            )
 
         self._attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF]
+        if device.support_cooling(zone_id):
+            self._attr_hvac_modes.extend([HVACMode.COOL, HVACMode.AUTO])
+        self._attr_hvac_mode = HVACMode.OFF
 
-        if device.support_cooling(description.zone_id):
-            self._attr_hvac_modes.extend([HVACMode.COOL, HVACMode.HEAT_COOL])
+        if len(device.zones) > 1:
+            self._attr_name = f"Zone {zone_id}"
 
-        super().__init__(coordinator, description.key)
-        _LOGGER.info(f"Registing Climate entity: '{self._attr_unique_id}'")
+        super().__init__(coordinator, f"zone-{zone_id}-climate")
 
     def _async_update_attrs(self) -> None:
-        """Update attributes."""
         device = self.coordinator.device
-        zone = device.zones.get(self.entity_description.zone_id)
-        self._attr_hvac_mode = convert_mode_and_status_to_hvac_mode(
-            device.mode, zone.operation_status
+        zone = device.zones.get(self._zone_id)
+
+        self._attr_hvac_mode = get_hvac_mode_from_ext_op_mode(
+            device.mode, zone.operation_status, device.operation_status
         )
-        self._attr_hvac_action = convert_aquarea_action_to_hvac_action(
-            device.current_action
+        self._attr_hvac_action = get_hvac_action_from_device_direction(
+            device.current_direction, self._attr_hvac_mode
         )
         self._attr_current_temperature = zone.temperature
 
-        self._attr_max_temp = zone.temperature
-        self._attr_min_temp = zone.temperature
+        # support_cooling() reads from the device group listing which only reflects
+        # the current operationMode, so it returns False when the device is in heat mode
+        # even if cooling is supported. The live status always populates cool_max for
+        # cooling-capable zones regardless of current mode, so we use it as the
+        # authoritative signal here.
+        if zone.cool_max is not None and HVACMode.COOL not in self._attr_hvac_modes:
+            self._attr_hvac_modes = [HVACMode.HEAT, HVACMode.COOL, HVACMode.AUTO, HVACMode.OFF]
 
-        if (
-            zone.supports_set_temperature
-            and device.mode != AquareaExtendedOperationMode.OFF
-        ):
-            self._attr_max_temp = (
-                zone.cool_max
-                if device.mode
-                in (
-                    AquareaExtendedOperationMode.COOL,
-                    AquareaExtendedOperationMode.AUTO_COOL,
-                )
-                else zone.heat_max
-            )
-            self._attr_min_temp = (
-                zone.cool_min
-                if device.mode
-                in (
-                    AquareaExtendedOperationMode.COOL,
-                    AquareaExtendedOperationMode.AUTO_COOL,
-                )
-                else zone.heat_min
-            )
-            self._attr_target_temperature = (
-                zone.cool_target_temperature
-                if device.mode
-                in (
-                    AquareaExtendedOperationMode.COOL,
-                    AquareaExtendedOperationMode.AUTO_COOL,
-                )
-                else zone.heat_target_temperature
+        if device.support_special_status:
+            self._attr_preset_mode = SPECIAL_STATUS_REVERSE_LOOKUP.get(
+                device.special_status
             )
 
-    async def async_turn_on(self) -> None:
-        """Set the climate state to on."""
-        await self.coordinator.device.turn_on()
-        await self.coordinator.async_request_refresh()
-        self.async_write_ha_state()
+        is_cool = device.mode in (
+            AquareaExtendedOperationMode.COOL,
+            AquareaExtendedOperationMode.AUTO_COOL,
+        )
 
-    async def async_turn_off(self) -> None:
-        """Set the climate state to off."""
-        await self.coordinator.device.turn_off()
-        self._attr_hvac_mode = HVACMode.OFF
-        self.async_write_ha_state()
+        if zone.supports_set_temperature and device.mode != AquareaExtendedOperationMode.OFF:
+            self._attr_max_temp = zone.cool_max if is_cool else zone.heat_max
+            self._attr_min_temp = zone.cool_min if is_cool else zone.heat_min
+        else:
+            self._attr_max_temp = zone.temperature
+            self._attr_min_temp = zone.temperature
 
-    async def async_set_temperature(self, **kwargs: Any) -> None:
-        """Set the climate temperature."""
-        device = self.coordinator.device
-        zone = device.zones.get(self.entity_description.zone_id)
-        if mode := kwargs.get(ATTR_HVAC_MODE):
-            await self.async_set_hvac_mode(mode)
-        temp = kwargs.get(ATTR_TEMPERATURE)
-        if temp is not None and zone.supports_set_temperature:
-            await self.coordinator.device.set_temperature(int(temp), zone.zone_id)
+        self._attr_target_temperature = (
+            zone.cool_target_temperature if is_cool else zone.heat_target_temperature
+        )
+        self._attr_target_temperature_step = 1
+
+    async def _schedule_refresh(self, delay: float = CLIMATE_DELAY_SHORT) -> None:
+        await asyncio.sleep(delay)
+        try:
+            await self.coordinator.async_request_refresh(force_fetch=True)
+        except RequestFailedError:
+            _LOGGER.exception(
+                "Delayed refresh failed for device %s",
+                getattr(self.coordinator.device, "device_id", "unknown"),
+            )
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
-        """Set new target hvac mode."""
-        if hvac_mode == HVACMode.OFF:
-            await self.async_turn_off()
-            return
-        if not (op_mode := convert_hvac_mode_to_aquarea_operation_mode(hvac_mode)):
-            raise ValueError(f"Invalid hvac mode {hvac_mode}")
-        await self.coordinator.device.set_mode(op_mode, self.entity_description.zone_id)
+        if hvac_mode not in self.hvac_modes:
+            raise ValueError(f"Unsupported HVAC mode: {hvac_mode}")
+        old_hvac_mode = self._attr_hvac_mode
+        self._attr_hvac_mode = hvac_mode
+        self.async_write_ha_state()
+        try:
+            await self.coordinator.device.set_mode(
+                get_update_operation_mode_from_hvac_mode(hvac_mode), self._zone_id
+            )
+        except Exception:
+            self._attr_hvac_mode = old_hvac_mode
+            self.async_write_ha_state()
+            raise
+        self.hass.async_create_task(self._schedule_refresh(CLIMATE_DELAY_LONG))
+
+    async def async_set_temperature(self, **kwargs: Any) -> None:
+        zone = self.coordinator.device.zones.get(self._zone_id)
+        hvac_mode: HVACMode | None = kwargs.get(ATTR_HVAC_MODE)
+        temperature: float | None = kwargs.get(ATTR_TEMPERATURE)
+        if hvac_mode is not None:
+            await self.async_set_hvac_mode(hvac_mode)
+        if temperature is not None and zone.supports_set_temperature:
+            old_temp = self._attr_target_temperature
+            self._attr_target_temperature = temperature
+            self.async_write_ha_state()
+            try:
+                await self.coordinator.device.set_temperature(
+                    int(temperature), zone.zone_id
+                )
+            except Exception:
+                self._attr_target_temperature = old_temp
+                self.async_write_ha_state()
+                raise
+            self.hass.async_create_task(self._schedule_refresh(CLIMATE_DELAY_SHORT))
+
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
+        if preset_mode not in self.preset_modes:
+            raise ValueError(f"Unsupported preset mode: {preset_mode}")
+        old_preset = self._attr_preset_mode
+        self._attr_preset_mode = preset_mode
+        self.async_write_ha_state()
+        try:
+            await self.coordinator.device.set_special_status(
+                SPECIAL_STATUS_LOOKUP[preset_mode]
+            )
+        except Exception:
+            self._attr_preset_mode = old_preset
+            self.async_write_ha_state()
+            raise
+        self.hass.async_create_task(self._schedule_refresh(CLIMATE_DELAY_LONG))
+
+    async def async_turn_on(self) -> None:
+        old_hvac_mode = self._attr_hvac_mode
+        self._attr_hvac_mode = HVACMode.HEAT
+        self.async_write_ha_state()
+        try:
+            await self.coordinator.device.turn_on()
+        except Exception:
+            self._attr_hvac_mode = old_hvac_mode
+            self.async_write_ha_state()
+            raise
+        self.hass.async_create_task(self._schedule_refresh(CLIMATE_DELAY_LONG))
+
+    async def async_turn_off(self) -> None:
+        old_hvac_mode = self._attr_hvac_mode
+        self._attr_hvac_mode = HVACMode.OFF
+        self.async_write_ha_state()
+        try:
+            await self.coordinator.device.turn_off()
+        except Exception:
+            self._attr_hvac_mode = old_hvac_mode
+            self.async_write_ha_state()
+            raise
+        self.hass.async_create_task(self._schedule_refresh(CLIMATE_DELAY_LONG))

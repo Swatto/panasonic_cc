@@ -22,6 +22,7 @@ ATTR_STATE_ON = "on"
 ATTR_STATE_OFF = "off"
 
 STATE_HEATING = "heating"
+STATE_IDLE = "idle"
 
 SERVICE_SET_SWING_LR_MODE = "set_horizontal_swing_mode"
 
@@ -92,7 +93,7 @@ MANUFACTURER = "Panasonic"
 PANASONIC_DEVICES = "panasonic_devices"
 DATA_COORDINATORS = "data_coordinators"
 ENERGY_COORDINATORS = "energy_coordinators"
-AQUAREA_COORDINATORS = "aquarea_coorinators"
+AQUAREA_COORDINATORS = "aquarea_coordinators"
 
 COMPONENT_TYPES = [
     Platform.CLIMATE,
@@ -112,7 +113,7 @@ Panasonic Comfort Cloud
 Version: %s
 This is a custom integration
 If you have any issues with this you need to open an issue here:
-https://github.com/sockless-coding/panasonic_cc/issues
+https://github.com/Swatto/panasonic_cc/issues
 -------------------------------------------------------------------
 """
 
@@ -124,5 +125,8 @@ CONF_ENERGY_FETCH_INTERVAL = "energy_fetch_interval"
 CONF_UPDATE_INTERVAL_VERSION = "update_interval_version"
 DEFAULT_DEVICE_FETCH_INTERVAL = 120
 DEFAULT_ENERGY_FETCH_INTERVAL = 300
+DEFAULT_DAILY_CONSUMPTION_INTERVAL = 15
+CONF_CONSUMPTION_INTERVAL = "consumption_interval"
+DEFAULT_CONSUMPTION_INTERVAL = 60
 CONF_FORCE_ENABLE_NANOE = "force_enable_nanoe"
 DEFAULT_FORCE_ENABLE_NANOE = False

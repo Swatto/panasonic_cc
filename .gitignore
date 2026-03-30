@@ -1,2 +1,8 @@
 .vscode/
 .idea/
+.env
+.venv/
+__pycache__/
+*.pyc
+ha-test-config/
+api_dumps/

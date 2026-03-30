@@ -14,7 +14,6 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from aio_panasonic_comfort_cloud import ApiClient
 from . import DOMAIN as PANASONIC_DOMAIN
 from .const import (
-    KEY_DOMAIN,
     CONF_FORCE_OUTSIDE_SENSOR,
     CONF_ENABLE_DAILY_ENERGY_SENSOR,
     DEFAULT_ENABLE_DAILY_ENERGY_SENSOR,
@@ -46,9 +45,8 @@ class FlowHandler(config_entries.ConfigFlow, domain=PANASONIC_DOMAIN):
 
     async def _create_entry(self, username, password):
         """Register new entry."""
-        # Check if ip already is registered
         for entry in self._async_current_entries():
-            if entry.data[KEY_DOMAIN] == PANASONIC_DOMAIN:
+            if entry.domain == PANASONIC_DOMAIN:
                 return self.async_abort(reason="already_configured")
 
         return self.async_create_entry(
@@ -78,13 +76,13 @@ class FlowHandler(config_entries.ConfigFlow, domain=PANASONIC_DOMAIN):
                 return self.async_abort(reason="No devices")
 
         except asyncio.TimeoutError as te:
-            _LOGGER.exception("TimeoutError", te)
+            _LOGGER.exception("TimeoutError: %s", te)
             return self.async_abort(reason="device_timeout")
         except ClientError as ce:
-            _LOGGER.exception("ClientError", ce)
+            _LOGGER.exception("ClientError: %s", ce)
             return self.async_abort(reason="device_fail")
         except Exception as e:  # pylint: disable=broad-except
-            _LOGGER.exception("Unexpected error creating device", e)
+            _LOGGER.exception("Unexpected error creating device: %s", e)
             return self.async_abort(reason="device_fail")
 
         return await self._create_entry(username, password)
@@ -157,16 +155,16 @@ class FlowHandler(config_entries.ConfigFlow, domain=PANASONIC_DOMAIN):
             if not devices and not api.unknown_devices:
                 return {"base": "no_devices"}
         except asyncio.TimeoutError as te:
-            _LOGGER.exception("TimeoutError", te)
+            _LOGGER.exception("TimeoutError: %s", te)
             return {"base": "device_timeout"}
         except ClientError as ce:
-            _LOGGER.exception("ClientError", ce)
+            _LOGGER.exception("ClientError: %s", ce)
             return {"base": "device_fail"}
         except Exception as e:  # pylint: disable=broad-except
             err_msg = str(e)
             if "invalid_user_password" in err_msg:
                 return {"base": "invalid_user_password"}
-            _LOGGER.exception("Unexpected error creating device", e)
+            _LOGGER.exception("Unexpected error creating device: %s", e)
             return {"base": "device_fail"}
 
         return {}

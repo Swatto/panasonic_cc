@@ -2,13 +2,15 @@ from typing import Callable, Awaitable, Any
 from dataclasses import dataclass
 import logging
 
+import aioaquarea
+
 from homeassistant.core import HomeAssistant
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from .const import DOMAIN, DATA_COORDINATORS, ENERGY_COORDINATORS
+from .const import DOMAIN, DATA_COORDINATORS, ENERGY_COORDINATORS, AQUAREA_COORDINATORS
 from .coordinator import PanasonicDeviceCoordinator, PanasonicDeviceEnergyCoordinator, AquareaDeviceCoordinator
-from .base import PanasonicDataEntity
+from .base import PanasonicDataEntity, AquareaDataEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,7 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, config, async_add_entities):
     entities = []
     data_coordinators: list[PanasonicDeviceCoordinator] = hass.data[DOMAIN][DATA_COORDINATORS]
     energy_coordinators: list[PanasonicDeviceEnergyCoordinator] = hass.data[DOMAIN][ENERGY_COORDINATORS]
-    aquarea_coordinators = hass.data[DOMAIN].get("aquarea_coordinators", [])
+    aquarea_coordinators = hass.data[DOMAIN].get(AQUAREA_COORDINATORS, [])
 
     for coordinator in data_coordinators:
         entities.append(PanasonicButtonEntity(coordinator, APP_VERSION_DESCRIPTION))
@@ -57,34 +59,7 @@ async def async_setup_entry(hass: HomeAssistant, config, async_add_entities):
 
     # --- Aquarea buttons ---
     for coordinator in aquarea_coordinators:
-        device = coordinator.device
-        # Force DHW trigger
-        if hasattr(device, "has_force_dhw_trigger") and getattr(device, "has_force_dhw_trigger", False):
-            force_dhw_btn = PanasonicButtonEntityDescription(
-                key="force_dhw_trigger",
-                name="Force DHW Trigger",
-                icon="mdi:water-boiler",
-                func=lambda coord: coord.api_client.force_dhw(),
-            )
-            entities.append(PanasonicButtonEntity(coordinator, force_dhw_btn))
-        # Reset alarms
-        if hasattr(device, "has_reset_alarm") and getattr(device, "has_reset_alarm", False):
-            reset_alarm_btn = PanasonicButtonEntityDescription(
-                key="reset_alarm",
-                name="Reset Alarm",
-                icon="mdi:alert-remove",
-                func=lambda coord: coord.api_client.reset_alarm(),
-            )
-            entities.append(PanasonicButtonEntity(coordinator, reset_alarm_btn))
-        # Manual boost
-        if hasattr(device, "has_manual_boost") and getattr(device, "has_manual_boost", False):
-            boost_btn = PanasonicButtonEntityDescription(
-                key="manual_boost",
-                name="Manual Boost",
-                icon="mdi:rocket-launch",
-                func=lambda coord: coord.api_client.manual_boost(),
-            )
-            entities.append(PanasonicButtonEntity(coordinator, boost_btn))
+        entities.append(AquareaDefrostButton(coordinator))
 
     async_add_entities(entities)
 
@@ -126,3 +101,18 @@ class CoordinatorUpdateButtonEntity(PanasonicDataEntity, ButtonEntity):
     async def async_press(self) -> None:
         """Press the button."""
         await self.coordinator.async_request_refresh()
+
+
+class AquareaDefrostButton(AquareaDataEntity, ButtonEntity):
+    """Button to request defrost on an Aquarea device."""
+
+    def __init__(self, coordinator: AquareaDeviceCoordinator) -> None:
+        super().__init__(coordinator, "request_defrost")
+        self._attr_icon = "mdi:snowflake-melt"
+
+    def _async_update_attrs(self) -> None:
+        pass
+
+    async def async_press(self) -> None:
+        if self.coordinator.device.device_mode_status is not aioaquarea.DeviceModeStatus.DEFROST:
+            await self.coordinator.device.request_defrost()

@@ -1,7 +1,8 @@
 """Support for Panasonic Nanoe."""
 
+import asyncio
 import logging
-from typing import Callable
+from typing import Any, Callable
 from dataclasses import dataclass
 
 from homeassistant.core import HomeAssistant
@@ -18,6 +19,7 @@ from aio_panasonic_comfort_cloud import (
     ChangeRequestBuilder,
 )
 import aioaquarea
+from aioaquarea.errors import RequestFailedError
 
 
 from . import DOMAIN
@@ -114,10 +116,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     # Comfort Cloud switches (legacy)
     for data_coordinator in data_coordinators:
+        device = data_coordinator.device
         devices.append(PanasonicSwitchEntity(data_coordinator, NANOE_DESCRIPTION, always_available=force_enable_nanoe))
-        devices.append(PanasonicSwitchEntity(data_coordinator, ECONAVI_DESCRIPTION))
-        devices.append(PanasonicSwitchEntity(data_coordinator, ECO_FUNCTION_DESCRIPTION))
-        devices.append(PanasonicSwitchEntity(data_coordinator, IAUTOX_DESCRIPTION))
+        if device.has_eco_navi:
+            devices.append(PanasonicSwitchEntity(data_coordinator, ECONAVI_DESCRIPTION))
+        if device.has_eco_function:
+            devices.append(PanasonicSwitchEntity(data_coordinator, ECO_FUNCTION_DESCRIPTION))
+        if device.has_iauto_x:
+            devices.append(PanasonicSwitchEntity(data_coordinator, IAUTOX_DESCRIPTION))
         if data_coordinator.device.has_zones:
             for zone in data_coordinator.device.parameters.zones:
                 devices.append(PanasonicSwitchEntity(data_coordinator, create_zone_mode_description(zone)))
@@ -125,88 +131,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     # --- Aquarea switches ---
     for coordinator in aquarea_coordinators:
         device = coordinator.device
-        
-        # Holiday Timer
-        if hasattr(device, "holiday_timer") and hasattr(device, "set_holiday_timer"):
-            hol_desc = AquareaSwitchEntityDescription(
-                key="holiday_timer",
-                translation_key="holiday_timer",
-                name="Holiday Timer",
-                icon="mdi:calendar-clock",
-                on_func=lambda dev: dev.set_holiday_timer(1 if type(dev.holiday_timer).__name__ == "int" else aioaquarea.HolidayTimer.ON),
-                off_func=lambda dev: dev.set_holiday_timer(0 if type(dev.holiday_timer).__name__ == "int" else aioaquarea.HolidayTimer.OFF),
-                get_state=lambda dev: getattr(dev.holiday_timer, "name", str(dev.holiday_timer)) == "ON" or dev.holiday_timer == 1,
-                is_available=lambda dev: dev.holiday_timer is not None,
-            )
-            devices.append(AquareaSwitchEntity(coordinator, hol_desc))
-        # Nanoe
-        if hasattr(device, "has_nanoe") and getattr(device, "has_nanoe", False):
-            devices.append(PanasonicSwitchEntity(coordinator, NANOE_DESCRIPTION))
-        # Eco mode
-        if hasattr(device, "has_eco_mode") and getattr(device, "has_eco_mode", False):
-            eco_desc = PanasonicSwitchEntityDescription(
-                key="eco_mode",
-                translation_key="eco_mode",
-                name="Eco Mode",
-                icon="mdi:leaf",
-                on_func=lambda builder: builder.set_eco_mode(True),
-                off_func=lambda builder: builder.set_eco_mode(False),
-                get_state=lambda dev: getattr(dev, "eco_mode", False),
-                is_available=lambda dev: getattr(dev, "has_eco_mode", False),
-            )
-            devices.append(PanasonicSwitchEntity(coordinator, eco_desc))
-        # Powerful mode
-        if hasattr(device, "has_powerful_mode") and getattr(device, "has_powerful_mode", False):
-            powerful_desc = PanasonicSwitchEntityDescription(
-                key="powerful_mode",
-                translation_key="powerful_mode",
-                name="Powerful Mode",
-                icon="mdi:flash",
-                on_func=lambda builder: builder.set_powerful_mode(True),
-                off_func=lambda builder: builder.set_powerful_mode(False),
-                get_state=lambda dev: getattr(dev, "powerful_mode", False),
-                is_available=lambda dev: getattr(dev, "has_powerful_mode", False),
-            )
-            devices.append(PanasonicSwitchEntity(coordinator, powerful_desc))
-        # Force heater
-        if hasattr(device, "has_force_heater") and getattr(device, "has_force_heater", False):
-            force_heater_desc = PanasonicSwitchEntityDescription(
-                key="force_heater",
-                translation_key="force_heater",
-                name="Force Heater",
-                icon="mdi:radiator",
-                on_func=lambda builder: builder.set_force_heater(True),
-                off_func=lambda builder: builder.set_force_heater(False),
-                get_state=lambda dev: getattr(dev, "force_heater", False),
-                is_available=lambda dev: getattr(dev, "has_force_heater", False),
-            )
-            devices.append(PanasonicSwitchEntity(coordinator, force_heater_desc))
-        # Force DHW
-        if hasattr(device, "has_force_dhw") and getattr(device, "has_force_dhw", False):
-            force_dhw_desc = PanasonicSwitchEntityDescription(
-                key="force_dhw",
-                translation_key="force_dhw",
-                name="Force DHW",
-                icon="mdi:water-boiler",
-                on_func=lambda builder: builder.set_force_dhw(True),
-                off_func=lambda builder: builder.set_force_dhw(False),
-                get_state=lambda dev: getattr(dev, "force_dhw", False),
-                is_available=lambda dev: getattr(dev, "has_force_dhw", False),
-            )
-            devices.append(PanasonicSwitchEntity(coordinator, force_dhw_desc))
-        # Defrost
-        if hasattr(device, "has_defrost") and getattr(device, "has_defrost", False):
-            defrost_desc = PanasonicSwitchEntityDescription(
-                key="defrost",
-                translation_key="defrost",
-                name="Defrost",
-                icon="mdi:snowflake-melt",
-                on_func=lambda builder: builder.set_defrost(True),
-                off_func=lambda builder: builder.set_defrost(False),
-                get_state=lambda dev: getattr(dev, "defrost", False),
-                is_available=lambda dev: getattr(dev, "has_defrost", False),
-            )
-            devices.append(PanasonicSwitchEntity(coordinator, defrost_desc))
+        if device.has_tank:
+            devices.append(AquareaForceDHWSwitch(coordinator))
+        devices.append(AquareaForceHeaterSwitch(coordinator))
+        devices.append(AquareaHolidayTimerSwitch(coordinator))
 
     async_add_entities(devices)
 
@@ -241,7 +169,7 @@ class PanasonicSwitchEntity(PanasonicDataEntity, PanasonicSwitchEntityBase):
 
     def _async_update_attrs(self) -> None:
         """Update the attributes of the sensor."""
-        self._attr_available = self.entity_description.is_available(
+        self._attr_available = self._always_available or self.entity_description.is_available(
             self.coordinator.device
         )
         self._attr_is_on = self.entity_description.get_state(self.coordinator.device)
@@ -262,37 +190,137 @@ class PanasonicSwitchEntity(PanasonicDataEntity, PanasonicSwitchEntityBase):
         self._attr_is_on = False
         self.async_write_ha_state()
 
-@dataclass(frozen=True, kw_only=True)
-class AquareaSwitchEntityDescription(SwitchEntityDescription):
-    """Describes Aquarea Switch entity."""
-    on_func: Callable[['AquareaDevice'], Any]
-    off_func: Callable[['AquareaDevice'], Any]
-    get_state: Callable[['AquareaDevice'], bool]
-    is_available: Callable[['AquareaDevice'], bool]
+SWITCH_DELAY = 10.0
 
-class AquareaSwitchEntity(AquareaDataEntity, SwitchEntity):
-    _attr_device_class = SwitchDeviceClass.SWITCH
-    entity_description: AquareaSwitchEntityDescription
 
-    def __init__(self, coordinator: AquareaDeviceCoordinator, description: AquareaSwitchEntityDescription):
-        self.entity_description = description
-        super().__init__(coordinator, description.key)
+class AquareaForceDHWSwitch(AquareaDataEntity, SwitchEntity):
+    """Force DHW switch for Aquarea devices with a tank."""
+
+    def __init__(self, coordinator: AquareaDeviceCoordinator) -> None:
+        super().__init__(coordinator, "force_dhw")
+        self._optimistic_is_on: bool | None = None
 
     @property
-    def available(self) -> bool:
-        return self.entity_description.is_available(self.coordinator.device)
+    def icon(self) -> str:
+        return "mdi:water-boiler" if self.is_on else "mdi:water-boiler-off"
+
+    @property
+    def is_on(self) -> bool:
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
+        return self.coordinator.device.force_dhw is aioaquarea.ForceDHW.ON
 
     def _async_update_attrs(self) -> None:
-        self._attr_available = self.available
-        self._attr_is_on = self.entity_description.get_state(self.coordinator.device)
+        self._attr_is_on = self.coordinator.device.force_dhw is aioaquarea.ForceDHW.ON
 
-    async def async_turn_on(self, **kwargs):
-        await self.entity_description.on_func(self.coordinator.device)
-        self._attr_is_on = True
-        self.async_write_ha_state()
+    async def _schedule_refresh(self) -> None:
+        await asyncio.sleep(SWITCH_DELAY)
+        self._optimistic_is_on = None
+        try:
+            await self.coordinator.async_request_refresh(force_fetch=True)
+        except RequestFailedError:
+            _LOGGER.exception(
+                "Delayed refresh failed for device %s",
+                getattr(self.coordinator.device, "device_id", "unknown"),
+            )
 
-    async def async_turn_off(self, **kwargs):
-        await self.entity_description.off_func(self.coordinator.device)
-        self._attr_is_on = False
+    async def async_turn_on(self, **kwargs) -> None:
+        self._optimistic_is_on = True
         self.async_write_ha_state()
+        await self.coordinator.device.set_force_dhw(aioaquarea.ForceDHW.ON)
+        self.hass.async_create_task(self._schedule_refresh())
+
+    async def async_turn_off(self, **kwargs) -> None:
+        self._optimistic_is_on = False
+        self.async_write_ha_state()
+        await self.coordinator.device.set_force_dhw(aioaquarea.ForceDHW.OFF)
+        self.hass.async_create_task(self._schedule_refresh())
+
+
+class AquareaForceHeaterSwitch(AquareaDataEntity, SwitchEntity):
+    """Force Heater switch for Aquarea devices."""
+
+    def __init__(self, coordinator: AquareaDeviceCoordinator) -> None:
+        super().__init__(coordinator, "force_heater")
+        self._optimistic_is_on: bool | None = None
+
+    @property
+    def icon(self) -> str:
+        return "mdi:hvac" if self.is_on else "mdi:hvac-off"
+
+    @property
+    def is_on(self) -> bool:
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
+        return self.coordinator.device.force_heater is aioaquarea.ForceHeater.ON
+
+    def _async_update_attrs(self) -> None:
+        self._attr_is_on = self.coordinator.device.force_heater is aioaquarea.ForceHeater.ON
+
+    async def _schedule_refresh(self) -> None:
+        await asyncio.sleep(SWITCH_DELAY)
+        self._optimistic_is_on = None
+        try:
+            await self.coordinator.async_request_refresh(force_fetch=True)
+        except RequestFailedError:
+            _LOGGER.exception(
+                "Delayed refresh failed for device %s",
+                getattr(self.coordinator.device, "device_id", "unknown"),
+            )
+
+    async def async_turn_on(self, **kwargs) -> None:
+        self._optimistic_is_on = True
+        self.async_write_ha_state()
+        await self.coordinator.device.set_force_heater(aioaquarea.ForceHeater.ON)
+        self.hass.async_create_task(self._schedule_refresh())
+
+    async def async_turn_off(self, **kwargs) -> None:
+        self._optimistic_is_on = False
+        self.async_write_ha_state()
+        await self.coordinator.device.set_force_heater(aioaquarea.ForceHeater.OFF)
+        self.hass.async_create_task(self._schedule_refresh())
+
+
+class AquareaHolidayTimerSwitch(AquareaDataEntity, SwitchEntity):
+    """Holiday Timer switch for Aquarea devices."""
+
+    def __init__(self, coordinator: AquareaDeviceCoordinator) -> None:
+        super().__init__(coordinator, "holiday_timer")
+        self._optimistic_is_on: bool | None = None
+
+    @property
+    def icon(self) -> str:
+        return "mdi:timer-check" if self.is_on else "mdi:timer-off"
+
+    @property
+    def is_on(self) -> bool:
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
+        return self.coordinator.device.holiday_timer is aioaquarea.HolidayTimer.ON
+
+    def _async_update_attrs(self) -> None:
+        self._attr_is_on = self.coordinator.device.holiday_timer is aioaquarea.HolidayTimer.ON
+
+    async def _schedule_refresh(self) -> None:
+        await asyncio.sleep(SWITCH_DELAY)
+        self._optimistic_is_on = None
+        try:
+            await self.coordinator.async_request_refresh(force_fetch=True)
+        except RequestFailedError:
+            _LOGGER.exception(
+                "Delayed refresh failed for device %s",
+                getattr(self.coordinator.device, "device_id", "unknown"),
+            )
+
+    async def async_turn_on(self, **kwargs) -> None:
+        self._optimistic_is_on = True
+        self.async_write_ha_state()
+        await self.coordinator.device.set_holiday_timer(aioaquarea.HolidayTimer.ON)
+        self.hass.async_create_task(self._schedule_refresh())
+
+    async def async_turn_off(self, **kwargs) -> None:
+        self._optimistic_is_on = False
+        self.async_write_ha_state()
+        await self.coordinator.device.set_holiday_timer(aioaquarea.HolidayTimer.OFF)
+        self.hass.async_create_task(self._schedule_refresh())
 
