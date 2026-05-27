@@ -14,7 +14,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 # Load .env if present
@@ -41,6 +41,7 @@ from aioaquarea.data import (
     QuietMode,
     SpecialStatus,
 )
+from aioaquarea.errors import AuthenticationError, RequestFailedError, ApiError, ClientError
 
 
 DUMP_DIR = Path(__file__).parent.parent / "api_dumps"
@@ -60,6 +61,42 @@ def save_dump(name: str, data: dict) -> Path:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
     print(f"  [dump] {path}")
     return path
+
+
+def sync_api_token(client: Client) -> None:
+    """Keep aioaquarea's settings and low-level API client token state aligned."""
+    client._api_client.access_token = client._settings.access_token
+    if client._settings.expires_at:
+        client._api_client.token_expiration = datetime.fromtimestamp(
+            client._settings.expires_at, tz=timezone.utc
+        )
+
+
+def is_auth_or_token_error(err: BaseException) -> bool:
+    """Return True for direct or wrapped auth/token failures."""
+    current: BaseException | None = err
+    while current is not None:
+        if isinstance(current, AuthenticationError):
+            return True
+        message = str(current).lower()
+        if "token" in message or "auth" in message:
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
+async def retry_once_after_login(client: Client, action, description: str):
+    """Run an API action, re-login once if a token/auth failure is raised."""
+    for attempt in (1, 2):
+        try:
+            return await action()
+        except (AuthenticationError, RequestFailedError, ApiError, ClientError) as err:
+            if attempt == 2 or not is_auth_or_token_error(err):
+                raise
+            print(f"  [auth retry] {description} failed with {err}; logging in again")
+            await client.login()
+            sync_api_token(client)
+    raise RuntimeError(f"{description} failed after auth retry")
 
 
 async def main():
@@ -83,6 +120,7 @@ async def main():
         # --- Auth ---
         try:
             await client.login()
+            sync_api_token(client)
             print("  Auth        : OK")
         except Exception as e:
             print(f"  Auth FAILED : {e}")
@@ -90,10 +128,10 @@ async def main():
             print("     Try signing out of the Panasonic app and back in to reset 2FA method.")
             sys.exit(1)
 
-        # Prime _api_client._access_token so that token rotations in API responses
-        # are captured. Without this it stays None and the rotation guard in
+        # Prime _api_client.access_token so token rotations in API responses are
+        # captured. Without this it stays None and the rotation guard in
         # api_client.request() never fires, causing TOKEN_EXPIRED on follow-up calls.
-        client._api_client._access_token = client._settings.access_token
+        sync_api_token(client)
 
         # Wrap _api_client.request to capture raw JSON responses and keep tokens in sync.
         _raw_request = client._api_client.request
@@ -101,9 +139,9 @@ async def main():
         async def _capturing_request(method, *args, **kwargs):
             resp = await _raw_request(method, *args, **kwargs)
             # Sync any token rotation that api_client captured back to settings.
-            if client._api_client._access_token and client._api_client._access_token != client._settings.access_token:
+            if client._api_client.access_token and client._api_client.access_token != client._settings.access_token:
                 print(f"  [token rotated, syncing]")
-                client._settings.access_token = client._api_client._access_token
+                client._settings.access_token = client._api_client.access_token
             # Wrap the response so json() also saves a dump.
             _orig_json = resp.json
 
@@ -133,10 +171,13 @@ async def main():
         device_info = device_list[0]
         hr(f"Loading device: {device_info.name}")
 
-        from datetime import timezone, timedelta
-        device: Device = await client.get_device(
-            device_info=device_info,
-            timezone=timezone(timedelta(hours=1)),
+        device: Device = await retry_once_after_login(
+            client,
+            lambda: client.get_device(
+                device_info=device_info,
+                timezone=timezone(timedelta(hours=1)),
+            ),
+            "device load",
         )
         print("  Loaded OK")
 
