@@ -79,8 +79,12 @@ def _patch_entity(entity, hass):
     entity.async_write_ha_state = MagicMock()
 
 
+def _mock_create_task(hass):
+    hass.async_create_task = MagicMock(side_effect=lambda coro: coro.close())
+
+
 async def test_set_hvac_mode_calls_device(hass, climate_coordinator, climate_device):
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     entity = AquareaClimateEntity(climate_coordinator, 1)
     _patch_entity(entity, hass)
 
@@ -94,7 +98,7 @@ async def test_set_hvac_mode_calls_device(hass, climate_coordinator, climate_dev
 
 
 async def test_set_hvac_mode_rollback_on_error(hass, climate_coordinator, climate_device):
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     climate_device.set_mode = AsyncMock(side_effect=RuntimeError("API error"))
     entity = AquareaClimateEntity(climate_coordinator, 1)
     _patch_entity(entity, hass)
@@ -108,7 +112,7 @@ async def test_set_hvac_mode_rollback_on_error(hass, climate_coordinator, climat
 
 
 async def test_set_temperature_calls_device(hass, climate_coordinator, climate_device):
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     entity = AquareaClimateEntity(climate_coordinator, 1)
     _patch_entity(entity, hass)
 
@@ -119,7 +123,7 @@ async def test_set_temperature_calls_device(hass, climate_coordinator, climate_d
 
 
 async def test_set_temperature_rollback_on_error(hass, climate_coordinator, climate_device):
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     climate_device.set_temperature = AsyncMock(side_effect=RuntimeError("fail"))
     entity = AquareaClimateEntity(climate_coordinator, 1)
     _patch_entity(entity, hass)
@@ -132,7 +136,7 @@ async def test_set_temperature_rollback_on_error(hass, climate_coordinator, clim
 
 
 async def test_set_preset_mode_calls_device(hass, climate_coordinator, climate_device):
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     entity = AquareaClimateEntity(climate_coordinator, 1)
     _patch_entity(entity, hass)
 
@@ -142,7 +146,7 @@ async def test_set_preset_mode_calls_device(hass, climate_coordinator, climate_d
 
 
 async def test_set_preset_mode_rollback_on_error(hass, climate_coordinator, climate_device):
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     climate_device.set_special_status = AsyncMock(side_effect=RuntimeError("fail"))
     entity = AquareaClimateEntity(climate_coordinator, 1)
     _patch_entity(entity, hass)
@@ -155,7 +159,7 @@ async def test_set_preset_mode_rollback_on_error(hass, climate_coordinator, clim
 
 
 async def test_turn_on_calls_device(hass, climate_coordinator, climate_device):
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     entity = AquareaClimateEntity(climate_coordinator, 1)
     _patch_entity(entity, hass)
 
@@ -166,7 +170,7 @@ async def test_turn_on_calls_device(hass, climate_coordinator, climate_device):
 
 
 async def test_turn_off_calls_device(hass, climate_coordinator, climate_device):
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     entity = AquareaClimateEntity(climate_coordinator, 1)
     _patch_entity(entity, hass)
 
@@ -177,7 +181,7 @@ async def test_turn_off_calls_device(hass, climate_coordinator, climate_device):
 
 
 async def test_turn_off_rollback_on_error(hass, climate_coordinator, climate_device):
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     climate_device.turn_off = AsyncMock(side_effect=RuntimeError("fail"))
     entity = AquareaClimateEntity(climate_coordinator, 1)
     _patch_entity(entity, hass)
@@ -189,6 +193,18 @@ async def test_turn_off_rollback_on_error(hass, climate_coordinator, climate_dev
     assert entity._attr_hvac_mode == HVACMode.HEAT
 
 
+async def test_schedule_refresh_requests_forced_refresh(monkeypatch, climate_coordinator):
+    sleep = AsyncMock()
+    monkeypatch.setattr(climate.asyncio, "sleep", sleep)
+    climate_coordinator.async_request_refresh = AsyncMock()
+    entity = AquareaClimateEntity(climate_coordinator, 1)
+
+    await entity._schedule_refresh()
+
+    sleep.assert_awaited_once_with(climate.CLIMATE_DELAY_SHORT)
+    climate_coordinator.async_request_refresh.assert_awaited_once_with(force_fetch=True)
+
+
 async def test_cool_auto_modes_conditional(hass, climate_coordinator, climate_device):
     """COOL/AUTO only exposed if device supports cooling."""
     climate_device.support_cooling = MagicMock(return_value=True)
@@ -197,6 +213,7 @@ async def test_cool_auto_modes_conditional(hass, climate_coordinator, climate_de
     assert HVACMode.AUTO in entity._attr_hvac_modes
 
     climate_device.support_cooling = MagicMock(return_value=False)
+    climate_device.zones[1].cool_max = None
     entity2 = AquareaClimateEntity(climate_coordinator, 1)
     assert HVACMode.COOL not in entity2._attr_hvac_modes
     assert HVACMode.AUTO not in entity2._attr_hvac_modes

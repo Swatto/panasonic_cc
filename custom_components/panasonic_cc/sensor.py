@@ -520,7 +520,7 @@ class PanasonicEnergySensorEntity(PanasonicEnergyEntity, SensorEntity):
     def _async_update_attrs(self) -> None:
         """Update the attributes of the sensor."""
         energy = self.coordinator.energy
-        if energy is None:
+        if energy is None or self.entity_description.get_state is None:
             self._attr_available = False
             return
         value = self.entity_description.get_state(energy)
@@ -595,6 +595,8 @@ class AquareaSensorExtraStoredData(SensorExtraStoredData):
     @classmethod
     def from_dict(cls, restored: dict[str, Any]) -> Self:
         sensor_data = super().from_dict(restored)
+        if sensor_data is None:
+            raise ValueError("Cannot restore sensor data from an empty payload")
         return cls(
             native_value=sensor_data.native_value,
             native_unit_of_measurement=sensor_data.native_unit_of_measurement,

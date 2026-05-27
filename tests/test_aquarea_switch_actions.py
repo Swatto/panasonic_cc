@@ -42,9 +42,13 @@ def _patch_entity(entity, hass):
     entity.async_write_ha_state = MagicMock()
 
 
+def _mock_create_task(hass):
+    hass.async_create_task = MagicMock(side_effect=lambda coro: coro.close())
+
+
 async def test_force_dhw_turn_on_calls_device(hass, mock_aquarea_coordinator, mock_aquarea_device):
     mock_aquarea_device.set_force_dhw = AsyncMock()
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     switches = await _collect_switches(hass, [mock_aquarea_coordinator])
     fd = next(s for s in switches if isinstance(s, AquareaForceDHWSwitch))
     _patch_entity(fd, hass)
@@ -58,7 +62,7 @@ async def test_force_dhw_turn_on_calls_device(hass, mock_aquarea_coordinator, mo
 
 async def test_force_dhw_turn_off_calls_device(hass, mock_aquarea_coordinator, mock_aquarea_device):
     mock_aquarea_device.set_force_dhw = AsyncMock()
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     switches = await _collect_switches(hass, [mock_aquarea_coordinator])
     fd = next(s for s in switches if isinstance(s, AquareaForceDHWSwitch))
     _patch_entity(fd, hass)
@@ -69,9 +73,27 @@ async def test_force_dhw_turn_off_calls_device(hass, mock_aquarea_coordinator, m
     assert fd._optimistic_is_on is False
 
 
+async def test_schedule_refresh_clears_optimistic_state(
+    monkeypatch, mock_aquarea_coordinator
+):
+    sleep = AsyncMock()
+    monkeypatch.setattr(switch.asyncio, "sleep", sleep)
+    mock_aquarea_coordinator.async_request_refresh = AsyncMock()
+    fd = AquareaForceDHWSwitch(mock_aquarea_coordinator)
+    fd._optimistic_is_on = True
+
+    await fd._schedule_refresh()
+
+    sleep.assert_awaited_once_with(switch.SWITCH_DELAY)
+    assert fd._optimistic_is_on is None
+    mock_aquarea_coordinator.async_request_refresh.assert_awaited_once_with(
+        force_fetch=True
+    )
+
+
 async def test_force_heater_turn_on_calls_device(hass, mock_aquarea_coordinator, mock_aquarea_device):
     mock_aquarea_device.set_force_heater = AsyncMock()
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     switches = await _collect_switches(hass, [mock_aquarea_coordinator])
     fh = next(s for s in switches if isinstance(s, AquareaForceHeaterSwitch))
     _patch_entity(fh, hass)
@@ -83,7 +105,7 @@ async def test_force_heater_turn_on_calls_device(hass, mock_aquarea_coordinator,
 
 async def test_holiday_timer_turn_on_calls_device(hass, mock_aquarea_coordinator, mock_aquarea_device):
     mock_aquarea_device.set_holiday_timer = AsyncMock()
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     switches = await _collect_switches(hass, [mock_aquarea_coordinator])
     ht = next(s for s in switches if isinstance(s, AquareaHolidayTimerSwitch))
     _patch_entity(ht, hass)
@@ -95,7 +117,7 @@ async def test_holiday_timer_turn_on_calls_device(hass, mock_aquarea_coordinator
 
 async def test_holiday_timer_turn_off_calls_device(hass, mock_aquarea_coordinator, mock_aquarea_device):
     mock_aquarea_device.set_holiday_timer = AsyncMock()
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     switches = await _collect_switches(hass, [mock_aquarea_coordinator])
     ht = next(s for s in switches if isinstance(s, AquareaHolidayTimerSwitch))
     _patch_entity(ht, hass)

@@ -68,7 +68,7 @@ class AquareaWaterHeater(AquareaDataEntity, WaterHeaterEntity):
         self._attr_current_temperature = device.tank.temperature
 
         if device.tank.operation_status == OperationStatus.OFF:
-            self._attr_state = STATE_OFF
+            self._attr_state = STATE_OFF  # type: ignore[assignment]
             self._attr_current_operation = STATE_OFF
             self._attr_icon = (
                 "mdi:water-boiler-alert"
@@ -78,7 +78,7 @@ class AquareaWaterHeater(AquareaDataEntity, WaterHeaterEntity):
             return
 
         self._attr_icon = "mdi:water-boiler"
-        self._attr_state = STATE_HEAT_PUMP
+        self._attr_state = STATE_HEAT_PUMP  # type: ignore[assignment]
 
         # Determine if actively heating the tank
         current_direction = getattr(device, "current_direction", None)
@@ -125,11 +125,11 @@ class AquareaWaterHeater(AquareaDataEntity, WaterHeaterEntity):
 
     async def async_set_operation_mode(self, operation_mode):
         if operation_mode == STATE_HEATING:
-            self._attr_state = STATE_HEAT_PUMP
+            self._attr_state = STATE_HEAT_PUMP  # type: ignore[assignment]
             self._attr_current_operation = STATE_IDLE
             await self.coordinator.device.tank.turn_on()
         elif operation_mode == STATE_OFF:
-            self._attr_state = STATE_OFF
+            self._attr_state = STATE_OFF  # type: ignore[assignment]
             self._attr_current_operation = STATE_OFF
             await self.coordinator.device.tank.turn_off()
         self.async_write_ha_state()

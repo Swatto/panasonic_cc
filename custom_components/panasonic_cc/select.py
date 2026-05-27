@@ -47,7 +47,7 @@ class PanasonicSelectEntityDescription(SelectEntityDescription):
     set_option: Callable[[ChangeRequestBuilder, str], ChangeRequestBuilder]
     get_current_option: Callable[[PanasonicDevice], str]
     is_available: Callable[[PanasonicDevice], bool]
-    get_options: Callable[[PanasonicDevice], list[str]] = None
+    get_options: Callable[[PanasonicDevice], list[str]] | None = None
 
 
 HORIZONTAL_SWING_DESCRIPTION = PanasonicSelectEntityDescription(
@@ -82,7 +82,7 @@ VERTICAL_SWING_DESCRIPTION = PanasonicSelectEntityDescription(
 
 
 async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
-    entities = []
+    entities: list[SelectEntity] = []
     data_coordinators: list[PanasonicDeviceCoordinator] = hass.data[DOMAIN][DATA_COORDINATORS]
     aquarea_coordinators = hass.data[DOMAIN].get(AQUAREA_COORDINATORS, [])
 
@@ -146,7 +146,9 @@ class AquareaQuietModeSelect(AquareaDataEntity, SelectEntity):
     def current_option(self) -> str:
         if self._optimistic_option is not None:
             return self._optimistic_option
-        return QUIET_MODE_REVERSE_LOOKUP.get(self.coordinator.device.quiet_mode)
+        return QUIET_MODE_REVERSE_LOOKUP.get(
+            self.coordinator.device.quiet_mode, "off"
+        )
 
     def _async_update_attrs(self) -> None:
         self._attr_current_option = QUIET_MODE_REVERSE_LOOKUP.get(
@@ -198,7 +200,9 @@ class AquareaPowerfulTimeSelect(AquareaDataEntity, SelectEntity):
     def current_option(self) -> str:
         if self._optimistic_option is not None:
             return self._optimistic_option
-        return POWERFUL_TIME_REVERSE_LOOKUP.get(self.coordinator.device.powerful_time)
+        return POWERFUL_TIME_REVERSE_LOOKUP.get(
+            self.coordinator.device.powerful_time, "off"
+        )
 
     def _async_update_attrs(self) -> None:
         self._attr_current_option = POWERFUL_TIME_REVERSE_LOOKUP.get(

@@ -3,6 +3,7 @@ import logging
 
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
+from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.entity import DeviceInfo
@@ -63,7 +64,9 @@ class PanasonicDeviceCoordinator(DataUpdateCoordinator[int]):
         self._api_client = api_client
         self._panasonic_device_info = device_info
         self._device: PanasonicDevice | None = None
-        self._store = Store(hass, version=1, key=f"panasonic_cc_{device_info.id}")
+        self._store: Store[dict[str, Any]] = Store(
+            hass, version=1, key=f"panasonic_cc_{device_info.id}"
+        )
         self._update_id = 0
 
     @property
@@ -195,7 +198,7 @@ class PanasonicDeviceEnergyCoordinator(DataUpdateCoordinator[int]):
         return self._update_id
 
 
-class AquareaDeviceCoordinator(DataUpdateCoordinator):
+class AquareaDeviceCoordinator(DataUpdateCoordinator[int]):
 
     def __init__(
         self,
@@ -225,8 +228,8 @@ class AquareaDeviceCoordinator(DataUpdateCoordinator):
         self._on_token_saved = on_token_saved
 
         # Consumption caching
-        self._day_consumption = None
-        self._month_consumption = None
+        self._day_consumption: Any | None = None
+        self._month_consumption: Any | None = None
         self._last_daily_fetch_time: datetime | None = None
         self._last_monthly_fetch_time: datetime | None = None
         self._consumption_interval = config.get(

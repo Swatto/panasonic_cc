@@ -7,7 +7,7 @@ import aioaquarea
 from homeassistant.core import HomeAssistant
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.const import EntityCategory
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 from .const import DOMAIN, DATA_COORDINATORS, ENERGY_COORDINATORS, AQUAREA_COORDINATORS
 from .coordinator import PanasonicDeviceCoordinator, PanasonicDeviceEnergyCoordinator, AquareaDeviceCoordinator
 from .base import PanasonicDataEntity, AquareaDataEntity
@@ -46,20 +46,24 @@ UPDATE_ENERGY_DESCRIPTION = ButtonEntityDescription(
 
 
 async def async_setup_entry(hass: HomeAssistant, config, async_add_entities):
-    entities = []
+    entities: list[ButtonEntity] = []
     data_coordinators: list[PanasonicDeviceCoordinator] = hass.data[DOMAIN][DATA_COORDINATORS]
     energy_coordinators: list[PanasonicDeviceEnergyCoordinator] = hass.data[DOMAIN][ENERGY_COORDINATORS]
     aquarea_coordinators = hass.data[DOMAIN].get(AQUAREA_COORDINATORS, [])
 
-    for coordinator in data_coordinators:
-        entities.append(PanasonicButtonEntity(coordinator, APP_VERSION_DESCRIPTION))
-        entities.append(CoordinatorUpdateButtonEntity(coordinator, UPDATE_DATA_DESCRIPTION))
-    for coordinator in energy_coordinators:
-        entities.append(CoordinatorUpdateButtonEntity(coordinator, UPDATE_ENERGY_DESCRIPTION))
+    for data_coordinator in data_coordinators:
+        entities.append(PanasonicButtonEntity(data_coordinator, APP_VERSION_DESCRIPTION))
+        entities.append(
+            CoordinatorUpdateButtonEntity(data_coordinator, UPDATE_DATA_DESCRIPTION)
+        )
+    for energy_coordinator in energy_coordinators:
+        entities.append(
+            CoordinatorUpdateButtonEntity(energy_coordinator, UPDATE_ENERGY_DESCRIPTION)
+        )
 
     # --- Aquarea buttons ---
-    for coordinator in aquarea_coordinators:
-        entities.append(AquareaDefrostButton(coordinator))
+    for aquarea_coordinator in aquarea_coordinators:
+        entities.append(AquareaDefrostButton(aquarea_coordinator))
 
     async_add_entities(entities)
 
@@ -86,14 +90,20 @@ class PanasonicButtonEntity(PanasonicDataEntity, ButtonEntity):
             await self.entity_description.func(self.coordinator)
 
 
-class CoordinatorUpdateButtonEntity(PanasonicDataEntity, ButtonEntity):
+class CoordinatorUpdateButtonEntity(CoordinatorEntity[DataUpdateCoordinator[Any]], ButtonEntity):
     """Representation of a Coordinator Update Button."""
 
     def __init__(
-        self, coordinator: DataUpdateCoordinator, description: ButtonEntityDescription
+        self, coordinator: DataUpdateCoordinator[Any], description: ButtonEntityDescription
     ) -> None:
         self.entity_description = description
-        super().__init__(coordinator, description.key)
+        super().__init__(coordinator)
+        self._attr_has_entity_name = True
+        self._attr_translation_key = description.key
+        device_id = getattr(coordinator, "device_id", coordinator.name)
+        self._attr_unique_id = f"{device_id}-{description.key}"
+        if device_info := getattr(coordinator, "device_info", None):
+            self._attr_device_info = device_info
 
     def _async_update_attrs(self) -> None:
         """Update the attributes of the entity."""

@@ -40,10 +40,14 @@ def _patch_entity(entity, hass):
     entity.async_write_ha_state = MagicMock()
 
 
+def _mock_create_task(hass):
+    hass.async_create_task = MagicMock(side_effect=lambda coro: coro.close())
+
+
 async def test_quiet_mode_select_option_calls_device(hass, mock_aquarea_coordinator, mock_aquarea_device):
     mock_aquarea_device.set_quiet_mode = AsyncMock()
     mock_aquarea_device.quiet_mode = aioaquarea.QuietMode.OFF
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     entities = await _collect_selects(hass, [mock_aquarea_coordinator])
     qm = next(e for e in entities if isinstance(e, AquareaQuietModeSelect))
     _patch_entity(qm, hass)
@@ -58,7 +62,7 @@ async def test_quiet_mode_select_option_calls_device(hass, mock_aquarea_coordina
 async def test_quiet_mode_skips_if_same(hass, mock_aquarea_coordinator, mock_aquarea_device):
     mock_aquarea_device.set_quiet_mode = AsyncMock()
     mock_aquarea_device.quiet_mode = aioaquarea.QuietMode.LEVEL1
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     entities = await _collect_selects(hass, [mock_aquarea_coordinator])
     qm = next(e for e in entities if isinstance(e, AquareaQuietModeSelect))
     _patch_entity(qm, hass)
@@ -71,7 +75,7 @@ async def test_quiet_mode_skips_if_same(hass, mock_aquarea_coordinator, mock_aqu
 async def test_powerful_time_select_option_calls_device(hass, mock_aquarea_coordinator, mock_aquarea_device):
     mock_aquarea_device.set_powerful_time = AsyncMock()
     mock_aquarea_device.powerful_time = aioaquarea.PowerfulTime.OFF
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     entities = await _collect_selects(hass, [mock_aquarea_coordinator])
     pt = next(e for e in entities if isinstance(e, AquareaPowerfulTimeSelect))
     _patch_entity(pt, hass)
@@ -80,6 +84,22 @@ async def test_powerful_time_select_option_calls_device(hass, mock_aquarea_coord
 
     mock_aquarea_device.set_powerful_time.assert_called_once_with(aioaquarea.PowerfulTime.ON_60MIN)
     assert pt._optimistic_option == "on-60m"
+
+
+async def test_schedule_refresh_clears_optimistic_option(
+    monkeypatch, mock_aquarea_coordinator
+):
+    sleep = AsyncMock()
+    monkeypatch.setattr(select.asyncio, "sleep", sleep)
+    mock_aquarea_coordinator.async_request_refresh = AsyncMock()
+    qm = AquareaQuietModeSelect(mock_aquarea_coordinator)
+    qm._optimistic_option = "level2"
+
+    await qm._schedule_refresh()
+
+    sleep.assert_awaited_once_with(select.SELECT_DELAY)
+    assert qm._optimistic_option is None
+    mock_aquarea_coordinator.async_request_refresh.assert_awaited_once_with()
 
 
 async def test_powerful_time_icon_changes(hass, mock_aquarea_coordinator, mock_aquarea_device):

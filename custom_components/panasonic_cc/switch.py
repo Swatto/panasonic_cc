@@ -109,7 +109,7 @@ def create_zone_mode_description(zone: PanasonicDeviceZone):
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
-    devices = []
+    devices: list[SwitchEntity] = []
     data_coordinators: list[PanasonicDeviceCoordinator] = hass.data[DOMAIN][DATA_COORDINATORS]
     aquarea_coordinators = hass.data[DOMAIN].get(AQUAREA_COORDINATORS, [])
     force_enable_nanoe = entry.options.get(CONF_FORCE_ENABLE_NANOE, DEFAULT_FORCE_ENABLE_NANOE)

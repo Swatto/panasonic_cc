@@ -2,7 +2,7 @@
 
 import datetime as dt
 import logging
-from typing import Dict
+from typing import Any
 
 import asyncio
 
@@ -134,7 +134,7 @@ async def _aquarea_login(hass: HomeAssistant, entry_id: str, client: AquareaApiC
     await _save_aquarea_token(hass, entry_id, client)
 
 
-async def async_setup(hass: HomeAssistant, config: Dict) -> bool:
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Set up the Panasonic Comfort Cloud component."""
 
     hass.data.setdefault(DOMAIN, {})
@@ -147,7 +147,7 @@ async def async_setup(hass: HomeAssistant, config: Dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Establish connection with Comfort Cloud."""
 
-    conf = entry.data
+    conf = dict(entry.data)
     username = conf[CONF_USERNAME]
     password = conf[CONF_PASSWORD]
     enable_daily_energy_sensor = entry.options.get(
@@ -183,7 +183,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 f"Setting default energy fetch interval to {DEFAULT_ENERGY_FETCH_INTERVAL}"
             )
         hass.config_entries.async_update_entry(entry, data=updated_config)
-        conf = entry.data
+        conf = dict(entry.data)
 
     if len(devices) == 0 and not api.has_unknown_devices:
         _LOGGER.error("Could not find any Panasonic Comfort Cloud Heat Pumps")

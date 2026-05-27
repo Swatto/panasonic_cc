@@ -121,7 +121,7 @@ async def test_error_code_available_when_on_error(
     assert error_entity.entity_description.get_state(mock_aquarea_device) == "H99"
 
 
-async def test_error_code_unavailable_when_no_error(
+async def test_error_code_reports_none_when_no_error(
     hass, mock_aquarea_coordinator, mock_aquarea_device
 ):
     mock_aquarea_device.is_on_error = False
@@ -133,8 +133,8 @@ async def test_error_code_unavailable_when_no_error(
         if hasattr(e, "entity_description") and e.entity_description.key == "error_code"
     )
 
-    assert error_entity.entity_description.is_available(mock_aquarea_device) is False
-    assert error_entity.entity_description.get_state(mock_aquarea_device) is None
+    assert error_entity.entity_description.is_available(mock_aquarea_device) is True
+    assert error_entity.entity_description.get_state(mock_aquarea_device) == "none"
 
 
 async def test_pump_direction_sensor_registered(hass, mock_aquarea_coordinator):

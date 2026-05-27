@@ -98,6 +98,7 @@ def convert_operation_mode_to_hvac_mode(
             return HVACMode.FAN_ONLY
         case constants.OperationMode.Heat:
             return HVACMode.HEAT
+    return None
 
 
 def convert_hvac_mode_to_operation_mode(
@@ -115,6 +116,7 @@ def convert_hvac_mode_to_operation_mode(
             return constants.OperationMode.Fan
         case HVACMode.HEAT:
             return constants.OperationMode.Heat
+    return None
 
 
 def convert_state_to_hvac_action(state: PanasonicDeviceParameters) -> HVACAction | None:
@@ -149,6 +151,7 @@ def convert_state_to_hvac_action(state: PanasonicDeviceParameters) -> HVACAction
                 if state.target_temperature > state.inside_temperature
                 else HVACAction.IDLE
             )
+    return HVACAction.IDLE
 
 
 def get_hvac_mode_from_ext_op_mode(
@@ -196,7 +199,7 @@ def get_update_operation_mode_from_hvac_mode(
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities
 ):
-    entities = []
+    entities: list[ClimateEntity] = []
     data_coordinators: list[PanasonicDeviceCoordinator] = hass.data[DOMAIN][
         DATA_COORDINATORS
     ]
@@ -224,13 +227,14 @@ async def async_setup_entry(
 
     platform = entity_platform.current_platform.get()
 
-    platform.async_register_entity_service(
-        SERVICE_SET_SWING_LR_MODE,
-        {
-            vol.Required("swing_mode"): cv.string,
-        },
-        "async_set_horizontal_swing_mode",
-    )
+    if platform is not None:
+        platform.async_register_entity_service(
+            SERVICE_SET_SWING_LR_MODE,
+            {
+                vol.Required("swing_mode"): cv.string,
+            },
+            "async_set_horizontal_swing_mode",
+        )
 
 
 class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
@@ -393,7 +397,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
 
     async def _async_exit_summer_house_mode(
         self, builder: ChangeRequestBuilder
-    ) -> Callable[[ClimateEntity], None]:
+    ) -> None:
         """Exit summer house mode."""
         self._attr_min_temp = 16
         self._attr_max_temp = 30
@@ -480,7 +484,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set new target preset mode."""
-        if preset_mode not in self.preset_modes:
+        if preset_mode not in (self.preset_modes or []):
             raise ValueError(f"Unsupported preset_mode '{preset_mode}'")
 
         builder = self.coordinator.get_change_request_builder()
@@ -498,7 +502,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
         """Set new target fan mode."""
-        if fan_mode not in self.fan_modes:
+        if fan_mode not in (self.fan_modes or []):
             raise ValueError(f"Unsupported fan_mode '{fan_mode}'")
 
         builder = self.coordinator.get_change_request_builder()
@@ -508,7 +512,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
 
     async def async_set_swing_mode(self, swing_mode: str):
         """Set new target swing mode."""
-        if swing_mode not in self.swing_modes:
+        if swing_mode not in (self.swing_modes or []):
             raise ValueError(f"Unsupported swing mode '{swing_mode}'")
 
         builder = self.coordinator.get_change_request_builder()
@@ -518,7 +522,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
 
     async def async_set_swing_horizontal_mode(self, swing_mode: str):
         """Set new target swing mode."""
-        if swing_mode not in self.swing_horizontal_modes:
+        if swing_mode not in (self.swing_horizontal_modes or []):
             raise ValueError(f"Unsupported swing mode '{swing_mode}'")
 
         builder = self.coordinator.get_change_request_builder()
@@ -653,7 +657,7 @@ class AquareaClimateEntity(AquareaDataEntity, ClimateEntity):
             self.hass.async_create_task(self._schedule_refresh(CLIMATE_DELAY_SHORT))
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
-        if preset_mode not in self.preset_modes:
+        if preset_mode not in (self.preset_modes or []):
             raise ValueError(f"Unsupported preset mode: {preset_mode}")
         old_preset = self._attr_preset_mode
         self._attr_preset_mode = preset_mode

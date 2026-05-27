@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
-    entities = []
+    entities: list[BinarySensorEntity] = []
     aquarea_coordinators = hass.data[DOMAIN].get(AQUAREA_COORDINATORS, [])
 
     for coordinator in aquarea_coordinators:

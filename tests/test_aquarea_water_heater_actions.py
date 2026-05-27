@@ -53,8 +53,12 @@ def _patch_entity(entity, hass):
     entity.async_write_ha_state = MagicMock()
 
 
+def _mock_create_task(hass):
+    hass.async_create_task = MagicMock(side_effect=lambda coro: coro.close())
+
+
 async def test_set_temperature_calls_tank(hass, wh_coordinator, wh_device):
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     entity = AquareaWaterHeater(wh_coordinator)
     _patch_entity(entity, hass)
 
@@ -66,7 +70,7 @@ async def test_set_temperature_calls_tank(hass, wh_coordinator, wh_device):
 
 
 async def test_set_operation_mode_heating(hass, wh_coordinator, wh_device):
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     entity = AquareaWaterHeater(wh_coordinator)
     _patch_entity(entity, hass)
 
@@ -76,7 +80,7 @@ async def test_set_operation_mode_heating(hass, wh_coordinator, wh_device):
 
 
 async def test_set_operation_mode_off(hass, wh_coordinator, wh_device):
-    hass.async_create_task = MagicMock()
+    _mock_create_task(hass)
     entity = AquareaWaterHeater(wh_coordinator)
     _patch_entity(entity, hass)
 
@@ -84,6 +88,18 @@ async def test_set_operation_mode_off(hass, wh_coordinator, wh_device):
 
     wh_device.tank.turn_off.assert_called_once()
     assert entity._attr_state == STATE_OFF
+
+
+async def test_schedule_refresh_requests_forced_refresh(monkeypatch, wh_coordinator):
+    sleep = AsyncMock()
+    monkeypatch.setattr(water_heater.asyncio, "sleep", sleep)
+    wh_coordinator.async_request_refresh = AsyncMock()
+    entity = AquareaWaterHeater(wh_coordinator)
+
+    await entity._schedule_refresh()
+
+    sleep.assert_awaited_once_with(water_heater.WATER_HEATER_DELAY)
+    wh_coordinator.async_request_refresh.assert_awaited_once_with(force_fetch=True)
 
 
 async def test_heating_detection_by_direction(wh_coordinator, wh_device):
