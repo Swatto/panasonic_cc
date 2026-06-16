@@ -150,9 +150,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     conf = dict(entry.data)
     username = conf[CONF_USERNAME]
     password = conf[CONF_PASSWORD]
-    enable_daily_energy_sensor = entry.options.get(
-        CONF_ENABLE_DAILY_ENERGY_SENSOR, DEFAULT_ENABLE_DAILY_ENERGY_SENSOR
-    )
 
     client = async_get_clientsession(hass)
     api = ApiClient(username, password, client)
@@ -184,6 +181,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             )
         hass.config_entries.async_update_entry(entry, data=updated_config)
         conf = dict(entry.data)
+
+    # Options set via the Options UI take precedence over the values persisted
+    # in entry.data, so changes there (e.g. the fetch intervals) actually reach
+    # the coordinators below.
+    conf = {**conf, **entry.options}
+    enable_daily_energy_sensor = conf.get(
+        CONF_ENABLE_DAILY_ENERGY_SENSOR, DEFAULT_ENABLE_DAILY_ENERGY_SENSOR
+    )
 
     if len(devices) == 0 and not api.has_unknown_devices:
         _LOGGER.error("Could not find any Panasonic Comfort Cloud Heat Pumps")
@@ -248,9 +253,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             )
 
     await hass.config_entries.async_forward_entry_setups(entry, COMPONENT_TYPES)
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry):
     """Unload a config entry."""
     return await hass.config_entries.async_unload_platforms(entry, COMPONENT_TYPES)
+
+
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the integration when its options are updated."""
+    await hass.config_entries.async_reload(entry.entry_id)

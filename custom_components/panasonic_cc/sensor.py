@@ -25,7 +25,14 @@ from aio_panasonic_comfort_cloud import (
 )
 from aioaquarea import Device as AquareaDevice
 
-from .const import DOMAIN, DATA_COORDINATORS, ENERGY_COORDINATORS, AQUAREA_COORDINATORS
+from .const import (
+    DOMAIN,
+    DATA_COORDINATORS,
+    ENERGY_COORDINATORS,
+    AQUAREA_COORDINATORS,
+    CONF_FORCE_OUTSIDE_SENSOR,
+    DEFAULT_FORCE_OUTSIDE_SENSOR,
+)
 from .base import PanasonicDataEntity, PanasonicEnergyEntity, AquareaDataEntity
 from .coordinator import (
     PanasonicDeviceCoordinator,
@@ -325,12 +332,18 @@ async def async_setup_entry(hass, entry, async_add_entities):
     aquarea_coordinators: list[AquareaDeviceCoordinator] = hass.data[DOMAIN][
         AQUAREA_COORDINATORS
     ]
+    force_outside_sensor = entry.options.get(
+        CONF_FORCE_OUTSIDE_SENSOR, DEFAULT_FORCE_OUTSIDE_SENSOR
+    )
 
     for coordinator in data_coordinators:
         entities.append(
             PanasonicSensorEntity(coordinator, INSIDE_TEMPERATURE_DESCRIPTION)
         )
-        if coordinator.device.parameters.outside_temperature is not None:
+        if (
+            force_outside_sensor
+            or coordinator.device.parameters.outside_temperature is not None
+        ):
             entities.append(
                 PanasonicSensorEntity(coordinator, OUTSIDE_TEMPERATURE_DESCRIPTION)
             )
