@@ -17,6 +17,42 @@ from aio_panasonic_comfort_cloud import (
     PanasonicDeviceEnergy,
     ChangeRequestBuilder,
 )
+
+# ============================================================
+# BEGIN SHIM: aio-panasonic-comfort-cloud missing 'timestamp' field
+# --------------------------------------------------------------
+# Background: as of 2026-06-23, Panasonic's deviceStatus endpoint
+# stopped sending the top-level 'timestamp' field. The library at
+# version 2026.6.1 does `json['timestamp']` unguarded in
+# panasonicdevice.py:430, raising KeyError. This shim injects a
+# synthetic UTC timestamp (ms) when the field is absent, allowing
+# the integration to keep working until upstream releases a fix.
+#
+# DELETE THIS WHOLE BLOCK once aio-panasonic-comfort-cloud is
+# bumped past the release that fixes the unguarded `json['timestamp']`.
+# Tracking:
+#   - upstream lib issue: github.com/sockless-coding/aio-panasonic-comfort-cloud/issues/10
+#   - integration issues: github.com/sockless-coding/panasonic_cc/issues/467, #468
+# ============================================================
+from aio_panasonic_comfort_cloud import panasonicdevice as _pd_shim_mod
+from datetime import timezone as _shim_tz
+
+if not getattr(_pd_shim_mod.PanasonicDevice.load, "_swatto_ts_shim", False):
+    _shim_orig_load = _pd_shim_mod.PanasonicDevice.load
+
+    def _load_with_ts_shim(self, json):
+        if isinstance(json, dict) and "timestamp" not in json:
+            json = {
+                **json,
+                "timestamp": int(datetime.now(_shim_tz.utc).timestamp() * 1000),
+            }
+        return _shim_orig_load(self, json)
+
+    _load_with_ts_shim._swatto_ts_shim = True  # type: ignore[attr-defined]
+    _pd_shim_mod.PanasonicDevice.load = _load_with_ts_shim
+# ============================================================
+# END SHIM
+# ============================================================
 from aioaquarea import (
     Client as AquareaApiClient,
     Device as AquareaDevice,
