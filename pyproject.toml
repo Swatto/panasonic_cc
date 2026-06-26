@@ -7,7 +7,7 @@ requires-python = ">=3.14.2"
 # Runtime deps – these mirror manifest.json requirements and are exported to requirements.txt
 dependencies = [
     "aiohttp",
-    "aio-panasonic-comfort-cloud==2026.6.1",
+    "aio-panasonic-comfort-cloud==2026.6.2",
     "aioaquarea==1.0.7",
 ]
 
