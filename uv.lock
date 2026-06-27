@@ -24,7 +24,7 @@ wheels = [
 
 [[package]]
 name = "aio-panasonic-comfort-cloud"
-version = "2026.6.1"
+version = "2026.6.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -33,9 +33,9 @@ dependencies = [
     { name = "packaging" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7e/d7/322b3d516e956b31838970611812b30b5b427ff3c96752270be74225deb2/aio_panasonic_comfort_cloud-2026.6.1.tar.gz", hash = "sha256:edadf65610ae3ba3288cd552df62433333e44510f3b282c7a29cca5e14d35d9f", size = 30643, upload-time = "2026-06-05T19:05:56.921Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/05/e3/a296f9081e10d735b035447863900780cc841c86a524a3ace994faedbf1b/aio_panasonic_comfort_cloud-2026.6.2.tar.gz", hash = "sha256:f1dfa7b305aaad6f73cb37a466686035201be46ae0af8c3851a6303ad2f237f9", size = 32274, upload-time = "2026-06-23T17:27:18.567Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/56/26/4697bbc26cbf61f282e6f7877a1b51c953cb41aae2209c5ec36136319769/aio_panasonic_comfort_cloud-2026.6.1-py3-none-any.whl", hash = "sha256:69b21221966a3d604722be968c90c5c2f712dcd53e8c27de41054db72d15d52a", size = 31345, upload-time = "2026-06-05T19:05:55.507Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/3c/dea1ef35260bf9e41058ecc9d21bffe3858ca9fc511ab817c0f11a130632/aio_panasonic_comfort_cloud-2026.6.2-py3-none-any.whl", hash = "sha256:023817cef0070ea08caeaff2e847b8d146f38910a25fd3407976edea3fc51f48", size = 33405, upload-time = "2026-06-23T17:27:17.517Z" },
 ]
 
 [[package]]
@@ -1656,7 +1656,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aio-panasonic-comfort-cloud", specifier = "==2026.6.1" },
+    { name = "aio-panasonic-comfort-cloud", specifier = "==2026.6.2" },
     { name = "aioaquarea", specifier = "==1.0.7" },
     { name = "aiohttp" },
 ]
