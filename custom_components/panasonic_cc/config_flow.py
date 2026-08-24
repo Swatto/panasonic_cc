@@ -69,9 +69,8 @@ class FlowHandler(config_entries.ConfigFlow, domain=PANASONIC_DOMAIN):
             client = async_get_clientsession(self.hass)
             api = ApiClient(username, password, client)
             await api.start_session()
-            devices = api.get_devices()
 
-            if not devices and not api.unknown_devices:
+            if not api.has_devices:
                 _LOGGER.debug("No devices found")
                 return self.async_abort(reason="No devices")
 
@@ -150,9 +149,8 @@ class FlowHandler(config_entries.ConfigFlow, domain=PANASONIC_DOMAIN):
         api = ApiClient(username, password, client)
         try:
             await api.reauthenticate()
-            devices = api.get_devices()
 
-            if not devices and not api.unknown_devices:
+            if not api.has_devices:
                 return {"base": "no_devices"}
         except asyncio.TimeoutError as te:
             _LOGGER.exception("TimeoutError: %s", te)

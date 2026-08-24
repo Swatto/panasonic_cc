@@ -190,7 +190,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         CONF_ENABLE_DAILY_ENERGY_SENSOR, DEFAULT_ENABLE_DAILY_ENERGY_SENSOR
     )
 
-    if len(devices) == 0 and not api.has_unknown_devices:
+    if not api.has_devices:
         _LOGGER.error("Could not find any Panasonic Comfort Cloud Heat Pumps")
         return False
 
@@ -211,7 +211,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         except Exception as e:
             _LOGGER.warning(f"Failed to setup device: {device.name} ({e})", exc_info=e)
 
-    if api.has_unknown_devices:
+    # aio-panasonic-comfort-cloud >= 2026.7 recognizes Aquarea units itself and
+    # puts them in `aquarea_devices`, so they no longer land in
+    # `unknown_devices` the way they did when this gate was written. Check both:
+    # the Aquarea entities here are still driven by aioaquarea, and gating only
+    # on unknown devices silently dropped every heat pump after the bump.
+    if api.has_aquarea_devices or api.has_unknown_devices:
         try:
             aquarea_api_client = AquareaApiClient(client, username, password)
             await _aquarea_login(hass, entry.entry_id, aquarea_api_client)
