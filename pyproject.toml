@@ -8,7 +8,7 @@ requires-python = ">=3.14.2"
 dependencies = [
     "aiohttp",
     "aio-panasonic-comfort-cloud==2026.8.9",
-    "aioaquarea==1.0.7",
+    "aioaquarea==1.0.6",
 ]
 
 [tool.uv]
