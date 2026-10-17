@@ -33,6 +33,8 @@ dev = [
     "pytest-asyncio>=1.3.0",
     "mypy>=2.1.0",
     "homeassistant>=2026.8.3",
+    # API breaking-change detection (used by the weekly deps cron)
+    "griffe>=1.0",
 ]
 
 [tool.mypy]
