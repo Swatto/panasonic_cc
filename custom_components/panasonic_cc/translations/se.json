@@ -15,7 +15,7 @@
         }
       }
     },
-    "error":{
+    "error": {
       "no_devices": "Ingen enheter hittades. Kontrollera ditt Panasonic Konto i CFC Appen och försök igen.",
       "device_timeout": "Timeout för anslutning till API:et.",
       "device_fail": "Oväntat fel vid anslutning till API:et.",
@@ -54,59 +54,59 @@
               "powerful": "Kraftfull"
             }
           },
-          "swing_mode":{
+          "swing_mode": {
             "state": {
-              "Auto": "Auto",
-              "Up": "Upp",
-              "UpMid": "Mitt-upp",
-              "Mid": "Mitten",
-              "DownMid": "Mitt-Neråt",
-              "Down": "Neråt",
-              "Swing": "Svängande"
+              "auto": "Auto",
+              "up": "Upp",
+              "up_mid": "Mitt-upp",
+              "mid": "Mitten",
+              "down_mid": "Mitt-Neråt",
+              "down": "Neråt",
+              "swing": "Svängande"
             }
           },
-          "swing_horizontal_mode":{
+          "swing_horizontal_mode": {
             "state": {
-              "Auto": "Auto",
-              "Left": "Vänster",
-              "LeftMid": "Mitten vänster",
-              "Mid": "Mitten",
-              "RightMid": "Mitten höger",
-              "Right": "Höger"
+              "auto": "Auto",
+              "left": "Vänster",
+              "left_mid": "Mitten vänster",
+              "mid": "Mitten",
+              "right_mid": "Mitten höger",
+              "right": "Höger"
             }
           },
-          "fan_mode":{
+          "fan_mode": {
             "state": {
-              "Auto": "Auto",
-              "Low": "Låg",
-              "LowMid": "Medium-Låg",
-              "Mid": "Medium",
-              "HighMid": "Medium-Hög",
-              "High": "Hög"
+              "auto": "Auto",
+              "low": "Låg",
+              "low_mid": "Medium-Låg",
+              "mid": "Medium",
+              "high_mid": "Medium-Hög",
+              "high": "Hög"
             }
           }
         }
       }
     },
     "select": {
-      "horizontal_swing":{
+      "horizontal_swing": {
         "state": {
-          "Auto": "Auto",
-          "Left": "Vänster",
-          "LeftMid": "Mitten vänster",
-          "Mid": "Mitten",
-          "RightMid": "Mitten höger",
-          "Right": "Höger"
+          "auto": "Auto",
+          "left": "Vänster",
+          "left_mid": "Mitten vänster",
+          "mid": "Mitten",
+          "right_mid": "Mitten höger",
+          "right": "Höger"
         }
       },
-      "vertical_swing":{
+      "vertical_swing": {
         "state": {
-          "Auto": "Auto",
-          "Up": "Upp",
-          "UpMid": "Mitt-upp",
-          "Mid": "Mitten",
-          "DownMid": "Mitt-Neråt",
-          "Down": "Neråt"
+          "auto": "Auto",
+          "up": "Upp",
+          "up_mid": "Mitt-upp",
+          "mid": "Mitten",
+          "down_mid": "Mitt-Neråt",
+          "down": "Neråt"
         }
       }
     }

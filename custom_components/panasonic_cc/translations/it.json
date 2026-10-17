@@ -23,7 +23,7 @@
         }
       }
     },
-    "error":{
+    "error": {
       "no_devices": "Nessun dispositivo trovato. Controlla il tuo account e l'app CFC e riprova.",
       "device_timeout": "Timeout scaduto connessione alle API.",
       "device_fail": "Errore inatteso connessione alle API.",
@@ -62,59 +62,59 @@
               "powerful": "Powerful"
             }
           },
-          "swing_mode":{
+          "swing_mode": {
             "state": {
-              "Auto": "Automatico",
-              "Up": "Alto",
-              "UpMid": "Medio-alto",
-              "Mid": "Medio",
-              "DownMid": "Medio-basso",
-              "Down": "Basso",
-              "Swing": "Oscilla"
+              "auto": "Automatico",
+              "up": "Alto",
+              "up_mid": "Medio-alto",
+              "mid": "Medio",
+              "down_mid": "Medio-basso",
+              "down": "Basso",
+              "swing": "Oscilla"
             }
           },
-          "swing_horizontal_mode":{
+          "swing_horizontal_mode": {
             "state": {
-              "Auto": "Automatico",
-              "Left": "Sinistra",
-              "LeftMid": "Centro sinistra",
-              "Mid": "Centro",
-              "RightMid": "Centro destra",
-              "Right": "Destra"
+              "auto": "Automatico",
+              "left": "Sinistra",
+              "left_mid": "Centro sinistra",
+              "mid": "Centro",
+              "right_mid": "Centro destra",
+              "right": "Destra"
             }
           },
-          "fan_mode":{
+          "fan_mode": {
             "state": {
-              "Auto": "Automatica",
-              "Low": "Bassa",
-              "LowMid": "Medio-Bassa",
-              "Mid": "Media",
-              "HighMid": "Medio-Alta",
-              "High": "Alta"
+              "auto": "Automatica",
+              "low": "Bassa",
+              "low_mid": "Medio-Bassa",
+              "mid": "Media",
+              "high_mid": "Medio-Alta",
+              "high": "Alta"
             }
           }
         }
       }
     },
     "select": {
-      "horizontal_swing":{
+      "horizontal_swing": {
         "state": {
-          "Auto": "Automatico",
-          "Left": "Sinistra",
-          "LeftMid": "Centro sinistra",
-          "Mid": "Centro",
-          "RightMid": "Centro destra",
-          "Right": "Destra"
+          "auto": "Automatico",
+          "left": "Sinistra",
+          "left_mid": "Centro sinistra",
+          "mid": "Centro",
+          "right_mid": "Centro destra",
+          "right": "Destra"
         }
       },
-      "vertical_swing":{
+      "vertical_swing": {
         "state": {
-          "Auto": "Automatico",
-          "Up": "Alto",
-          "UpMid": "Medio-alto",
-          "Mid": "Medio",
-          "DownMid": "Medio-basso",
-          "Down": "Basso"
+          "auto": "Automatico",
+          "up": "Alto",
+          "up_mid": "Medio-alto",
+          "mid": "Medio",
+          "down_mid": "Medio-basso",
+          "down": "Basso"
         }
       }
     }

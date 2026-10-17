@@ -12,6 +12,7 @@ from .const import (
     SELECT_HORIZONTAL_SWING,
     SELECT_VERTICAL_SWING,
     AQUAREA_COORDINATORS,
+    snake_case,
 )
 from aio_panasonic_comfort_cloud import PanasonicDevice, ChangeRequestBuilder, constants
 from aioaquarea import PowerfulTime, QuietMode
@@ -56,12 +57,17 @@ HORIZONTAL_SWING_DESCRIPTION = PanasonicSelectEntityDescription(
     icon="mdi:swap-horizontal",
     name="Horizontal Swing Mode",
     options=[
-        opt.name
+        snake_case(opt.name)
         for opt in constants.AirSwingLR
         if opt != constants.AirSwingLR.Unavailable
     ],
-    set_option=lambda builder, new_value: builder.set_horizontal_swing(new_value),
-    get_current_option=lambda device: device.parameters.horizontal_swing_mode.name,
+    # Builder expects the CamelCase enum name; map back from snake_case.
+    set_option=lambda builder, new_value: builder.set_horizontal_swing(
+        constants.AirSwingLR[new_value.title().replace("_", "")]
+    ),
+    get_current_option=lambda device: snake_case(
+        device.parameters.horizontal_swing_mode.name
+    ),
     is_available=lambda device: device.has_horizontal_swing,
 )
 VERTICAL_SWING_DESCRIPTION = PanasonicSelectEntityDescription(
@@ -70,12 +76,16 @@ VERTICAL_SWING_DESCRIPTION = PanasonicSelectEntityDescription(
     icon="mdi:swap-vertical",
     name="Vertical Swing Mode",
     get_options=lambda device: [
-        opt.name
+        snake_case(opt.name)
         for opt in constants.AirSwingUD
         if opt != constants.AirSwingUD.Swing or device.features.auto_swing_ud
     ],
-    set_option=lambda builder, new_value: builder.set_vertical_swing(new_value),
-    get_current_option=lambda device: device.parameters.vertical_swing_mode.name,
+    set_option=lambda builder, new_value: builder.set_vertical_swing(
+        constants.AirSwingUD[new_value.title().replace("_", "")]
+    ),
+    get_current_option=lambda device: snake_case(
+        device.parameters.vertical_swing_mode.name
+    ),
     is_available=lambda device: True,
 )
 

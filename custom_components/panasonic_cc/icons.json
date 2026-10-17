@@ -13,33 +13,33 @@
                 },
                 "swing_mode":{
                   "state": {
-                    "Auto": "mdi:shuffle",
-                    "Up": "mdi:arrow-up-thin",
-                    "UpMid": "mdi:arrow-top-right-thin",
-                    "Mid": "mdi:arrow-right-thin",
-                    "DownMid": "mdi:arrow-bottom-right-thin",
-                    "Down": "mdi:arrow-down-thin",
-                    "Swing": "mdi:shuffle"
+                    "auto": "mdi:shuffle",
+                    "up": "mdi:arrow-up-thin",
+                    "up_mid": "mdi:arrow-top-right-thin",
+                    "mid": "mdi:arrow-right-thin",
+                    "down_mid": "mdi:arrow-bottom-right-thin",
+                    "down": "mdi:arrow-down-thin",
+                    "swing": "mdi:shuffle"
                   }
                 },
                 "swing_horizontal_mode":{
                   "state": {
-                    "Auto": "mdi:compare-horizontal",
-                    "Left": "mdi:arrow-left-thin",
-                    "LeftMid": "mdi:arrow-bottom-left-thin",
-                    "Mid": "mdi:arrow-down-thin",
-                    "RightMid": "mdi:arrow-bottom-right-thin",
-                    "Right": "mdi:arrow-right-thin"
+                    "auto": "mdi:compare-horizontal",
+                    "left": "mdi:arrow-left-thin",
+                    "left_mid": "mdi:arrow-bottom-left-thin",
+                    "mid": "mdi:arrow-down-thin",
+                    "right_mid": "mdi:arrow-bottom-right-thin",
+                    "right": "mdi:arrow-right-thin"
                   }
                 },
                 "fan_mode":{
                   "state": {
-                    "Auto": "mdi:alpha-a-circle-outline",
-                    "Low": "mdi:numeric-1-circle-outline",
-                    "LowMid": "mdi:numeric-2-circle-outline",
-                    "Mid": "mdi:numeric-3-circle-outline",
-                    "HighMid": "mdi:numeric-4-circle-outline",
-                    "High": "mdi:numeric-5-circle-outline"
+                    "auto": "mdi:alpha-a-circle-outline",
+                    "low": "mdi:numeric-1-circle-outline",
+                    "low_mid": "mdi:numeric-2-circle-outline",
+                    "mid": "mdi:numeric-3-circle-outline",
+                    "high_mid": "mdi:numeric-4-circle-outline",
+                    "high": "mdi:numeric-5-circle-outline"
                   }
                 }
             }

@@ -1,5 +1,7 @@
 """Constants for Panasonic Cloud."""
 
+import re
+
 from homeassistant.const import CONF_ICON, CONF_NAME, CONF_TYPE, Platform
 from homeassistant.components.climate.const import (
     HVACMode,
@@ -8,6 +10,11 @@ from homeassistant.components.climate.const import (
     PRESET_NONE,
     PRESET_BOOST,
 )
+
+
+def snake_case(name: str) -> str:
+    """Convert CamelCase (e.g. enum .name) to snake_case for HA translations."""
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 ATTR_TARGET_TEMPERATURE = "target_temperature"
 ATTR_INSIDE_TEMPERATURE = "inside_temperature"

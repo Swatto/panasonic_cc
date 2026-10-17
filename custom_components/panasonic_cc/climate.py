@@ -54,6 +54,7 @@ from .const import (
     DOMAIN,
     DATA_COORDINATORS,
     AQUAREA_COORDINATORS,
+    snake_case,
     CONF_USE_PANASONIC_PRESET_NAMES,
     DEFAULT_USE_PANASONIC_PRESET_NAMES,
 )
@@ -243,7 +244,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = 0.5
     _attr_supported_features = SUPPORT_FLAGS
-    _attr_fan_modes = [f.name for f in constants.FanSpeed]
+    _attr_fan_modes = [snake_case(f.name) for f in constants.FanSpeed]
     _attr_name = None
 
     def __init__(
@@ -282,7 +283,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
         self._attr_preset_modes = preset_modes
 
         self._attr_swing_modes = [
-            opt.name
+            snake_case(opt.name)
             for opt in constants.AirSwingUD
             if opt != constants.AirSwingUD.Swing or device.features.auto_swing_ud
         ]
@@ -290,7 +291,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
         if device.has_horizontal_swing:
             self._attr_supported_features |= ClimateEntityFeature.SWING_HORIZONTAL_MODE
             self._attr_swing_horizontal_modes = [
-                opt.name
+                snake_case(opt.name)
                 for opt in constants.AirSwingLR
                 if opt != constants.AirSwingLR.Unavailable
             ]
@@ -312,10 +313,12 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
         self._set_temp_range()
         self._attr_current_temperature = state.inside_temperature
         self._attr_target_temperature = state.target_temperature
-        self._attr_fan_mode = state.fan_speed.name
-        self._attr_swing_mode = state.vertical_swing_mode.name
+        self._attr_fan_mode = snake_case(state.fan_speed.name)
+        self._attr_swing_mode = snake_case(state.vertical_swing_mode.name)
         if self.coordinator.device.has_horizontal_swing:
-            self._attr_swing_horizontal_mode = state.horizontal_swing_mode.name
+            self._attr_swing_horizontal_mode = snake_case(
+                state.horizontal_swing_mode.name
+            )
 
         if self.coordinator.device.in_summer_house_mode:
             self._attr_preset_mode = PRESET_8_15
@@ -364,11 +367,13 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
                 self._attr_preset_mode = default_preset
 
         if builder.fan_speed:
-            self._attr_fan_mode = builder.fan_speed.name
+            self._attr_fan_mode = snake_case(builder.fan_speed.name)
         if builder.vertical_swing:
-            self._attr_swing_mode = builder.vertical_swing.name
+            self._attr_swing_mode = snake_case(builder.vertical_swing.name)
         if builder.horizontal_swing:
-            self._attr_swing_horizontal_mode = builder.horizontal_swing.name
+            self._attr_swing_horizontal_mode = snake_case(
+                builder.horizontal_swing.name
+            )
         if builder.hvac_mode:
             self._attr_hvac_mode = convert_operation_mode_to_hvac_mode(
                 builder.hvac_mode, False
@@ -506,7 +511,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
             raise ValueError(f"Unsupported fan_mode '{fan_mode}'")
 
         builder = self.coordinator.get_change_request_builder()
-        builder.set_fan_speed(fan_mode)
+        builder.set_fan_speed(constants.FanSpeed[fan_mode.title().replace("_", "")])
         await self.coordinator.async_apply_changes(builder)
         self._update_attributes(builder)
 
@@ -516,7 +521,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
             raise ValueError(f"Unsupported swing mode '{swing_mode}'")
 
         builder = self.coordinator.get_change_request_builder()
-        builder.set_vertical_swing(swing_mode)
+        builder.set_vertical_swing(constants.AirSwingUD[swing_mode.title().replace("_", "")])
         await self.coordinator.async_apply_changes(builder)
         self._update_attributes(builder)
 
@@ -526,7 +531,7 @@ class PanasonicClimateEntity(PanasonicDataEntity, ClimateEntity):
             raise ValueError(f"Unsupported swing mode '{swing_mode}'")
 
         builder = self.coordinator.get_change_request_builder()
-        builder.set_horizontal_swing(swing_mode)
+        builder.set_horizontal_swing(constants.AirSwingLR[swing_mode.title().replace("_", "")])
         await self.coordinator.async_apply_changes(builder)
         self._update_attributes(builder)
 

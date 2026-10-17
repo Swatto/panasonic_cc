@@ -64,33 +64,33 @@
           },
           "swing_mode":{
             "state": {
-              "Auto": "Auto",
-              "Up": "Top",
-              "UpMid": "Mid-top",
-              "Mid": "Middle",
-              "DownMid": "Mid-bottom",
-              "Down": "Bottom",
-              "Swing": "Swing"
+              "auto": "Auto",
+              "up": "Top",
+              "up_mid": "Mid-top",
+              "mid": "Middle",
+              "down_mid": "Mid-bottom",
+              "down": "Bottom",
+              "swing": "Swing"
             }
           },
           "swing_horizontal_mode":{
             "state": {
-              "Auto": "Auto",
-              "Left": "Left",
-              "LeftMid": "Center left",
-              "Mid": "Center",
-              "RightMid": "Center right",
-              "Right": "Right"
+              "auto": "Auto",
+              "left": "Left",
+              "left_mid": "Center left",
+              "mid": "Center",
+              "right_mid": "Center right",
+              "right": "Right"
             }
           },
           "fan_mode":{
             "state": {
-              "Auto": "Auto",
-              "Low": "Low",
-              "LowMid": "Medium-Low",
-              "Mid": "Medium",
-              "HighMid": "Medium-High",
-              "High": "High"
+              "auto": "Auto",
+              "low": "Low",
+              "low_mid": "Medium-Low",
+              "mid": "Medium",
+              "high_mid": "Medium-High",
+              "high": "High"
             }
           }
         }
@@ -99,23 +99,23 @@
     "select": {
       "horizontal_swing":{
         "state": {
-          "Auto": "Auto",
-          "Left": "Left",
-          "LeftMid": "Center left",
-          "Mid": "Center",
-          "RightMid": "Center right",
-          "Right": "Right"
+          "auto": "Auto",
+          "left": "Left",
+          "left_mid": "Center left",
+          "mid": "Center",
+          "right_mid": "Center right",
+          "right": "Right"
         }
       },
       "vertical_swing":{
         "state": {
-          "Auto": "Auto",
-          "Up": "Top",
-          "UpMid": "Mid-top",
-          "Mid": "Middle",
-          "DownMid": "Mid-bottom",
-          "Down": "Bottom",
-          "Swing": "Swing"
+          "auto": "Auto",
+          "up": "Top",
+          "up_mid": "Mid-top",
+          "mid": "Middle",
+          "down_mid": "Mid-bottom",
+          "down": "Bottom",
+          "swing": "Swing"
         }
       },
       "quiet_mode": {

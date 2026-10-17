@@ -64,33 +64,33 @@
           },
           "swing_mode": {
             "state": {
-              "Auto": "Auto",
-              "Up": "Nahoru",
-              "UpMid": "Středně nahoru",
-              "Mid": "Střed",
-              "DownMid": "Středně dolů",
-              "Down": "Dolů",
-              "Swing": "Kmitání"
+              "auto": "Auto",
+              "up": "Nahoru",
+              "up_mid": "Středně nahoru",
+              "mid": "Střed",
+              "down_mid": "Středně dolů",
+              "down": "Dolů",
+              "swing": "Kmitání"
             }
           },
-          "swing_horizontal_mode":{
+          "swing_horizontal_mode": {
             "state": {
-              "Auto": "Auto",
-              "Left": "Vlevo",
-              "LeftMid": "Středně vlevo",
-              "Mid": "Střed",
-              "RightMid": "Středně vpravo",
-              "Right": "Vpravo"
+              "auto": "Auto",
+              "left": "Vlevo",
+              "left_mid": "Středně vlevo",
+              "mid": "Střed",
+              "right_mid": "Středně vpravo",
+              "right": "Vpravo"
             }
           },
           "fan_mode": {
             "state": {
-              "Auto": "Auto",
-              "Low": "Nejslabší",
-              "LowMid": "Slabší",
-              "Mid": "Střední",
-              "HighMid": "Silnější",
-              "High": "Nejsilnější"
+              "auto": "Auto",
+              "low": "Nejslabší",
+              "low_mid": "Slabší",
+              "mid": "Střední",
+              "high_mid": "Silnější",
+              "high": "Nejsilnější"
             }
           }
         }
@@ -99,22 +99,22 @@
     "select": {
       "horizontal_swing": {
         "state": {
-          "Auto": "Auto",
-          "Left": "Vlevo",
-          "LeftMid": "Středně vlevo",
-          "Mid": "Střed",
-          "RightMid": "Středně vpravo",
-          "Right": "Vpravo"
+          "auto": "Auto",
+          "left": "Vlevo",
+          "left_mid": "Středně vlevo",
+          "mid": "Střed",
+          "right_mid": "Středně vpravo",
+          "right": "Vpravo"
         }
       },
       "vertical_swing": {
         "state": {
-          "Auto": "Auto",
-          "Up": "Nahoru",
-          "UpMid": "Středně nahoru",
-          "Mid": "Střed",
-          "DownMid": "Středně dolů",
-          "Down": "Dolů"
+          "auto": "Auto",
+          "up": "Nahoru",
+          "up_mid": "Středně nahoru",
+          "mid": "Střed",
+          "down_mid": "Středně dolů",
+          "down": "Dolů"
         }
       }
     }

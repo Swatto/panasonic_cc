@@ -64,33 +64,33 @@
           },
           "swing_mode": {
             "state": {
-              "Auto": "Auto",
-              "Up": "Haut",
-              "UpMid": "Mi-haut",
-              "Mid": "Milieu",
-              "DownMid": "Mi-bas",
-              "Down": "Bas",
-              "Swing": "Oscillation"
+              "auto": "Auto",
+              "up": "Haut",
+              "up_mid": "Mi-haut",
+              "mid": "Milieu",
+              "down_mid": "Mi-bas",
+              "down": "Bas",
+              "swing": "Oscillation"
             }
           },
           "swing_horizontal_mode": {
             "state": {
-              "Auto": "Auto",
-              "Left": "Gauche",
-              "LeftMid": "Centre gauche",
-              "Mid": "Centre",
-              "RightMid": "Centre droit",
-              "Right": "Droite"
+              "auto": "Auto",
+              "left": "Gauche",
+              "left_mid": "Centre gauche",
+              "mid": "Centre",
+              "right_mid": "Centre droit",
+              "right": "Droite"
             }
           },
           "fan_mode": {
             "state": {
-              "Auto": "Auto",
-              "Low": "Faible",
-              "LowMid": "Moyen-faible",
-              "Mid": "Moyen",
-              "HighMid": "Moyen-fort",
-              "High": "Fort"
+              "auto": "Auto",
+              "low": "Faible",
+              "low_mid": "Moyen-faible",
+              "mid": "Moyen",
+              "high_mid": "Moyen-fort",
+              "high": "Fort"
             }
           }
         }
@@ -99,23 +99,23 @@
     "select": {
       "horizontal_swing": {
         "state": {
-          "Auto": "Auto",
-          "Left": "Gauche",
-          "LeftMid": "Centre gauche",
-          "Mid": "Centre",
-          "RightMid": "Centre droit",
-          "Right": "Droite"
+          "auto": "Auto",
+          "left": "Gauche",
+          "left_mid": "Centre gauche",
+          "mid": "Centre",
+          "right_mid": "Centre droit",
+          "right": "Droite"
         }
       },
       "vertical_swing": {
         "state": {
-          "Auto": "Auto",
-          "Up": "Haut",
-          "UpMid": "Mi-haut",
-          "Mid": "Milieu",
-          "DownMid": "Mi-bas",
-          "Down": "Bas",
-          "Swing": "Oscillation"
+          "auto": "Auto",
+          "up": "Haut",
+          "up_mid": "Mi-haut",
+          "mid": "Milieu",
+          "down_mid": "Mi-bas",
+          "down": "Bas",
+          "swing": "Oscillation"
         }
       },
       "quiet_mode": {
@@ -138,38 +138,86 @@
       }
     },
     "switch": {
-      "force_dhw": { "name": "Forcer ECS" },
-      "force_heater": { "name": "Forcer chauffage" },
-      "holiday_timer": { "name": "Minuterie vacances" }
+      "force_dhw": {
+        "name": "Forcer ECS"
+      },
+      "force_heater": {
+        "name": "Forcer chauffage"
+      },
+      "holiday_timer": {
+        "name": "Minuterie vacances"
+      }
     },
     "binary_sensor": {
-      "is_on_error": { "name": "État d'erreur" },
-      "defrost": { "name": "Dégivrage" }
+      "is_on_error": {
+        "name": "État d'erreur"
+      },
+      "defrost": {
+        "name": "Dégivrage"
+      }
     },
     "button": {
-      "request_defrost": { "name": "Demander le dégivrage" }
+      "request_defrost": {
+        "name": "Demander le dégivrage"
+      }
     },
     "sensor": {
-      "outside_temperature": { "name": "Température extérieure" },
-      "tank_temperature": { "name": "Température du ballon" },
-      "zone_temperature": { "name": "Température de zone" },
-      "flow_temperature": { "name": "Température de départ" },
-      "return_temperature": { "name": "Température de retour" },
-      "compressor_status": { "name": "État du compresseur" },
-      "error_code": { "name": "Code d'erreur" },
-      "direction": { "name": "Direction de la pompe" },
-      "pump_status": { "name": "État de la pompe" },
-      "heating_accumulated_energy_consumption": { "name": "Consommation cumulée chauffage" },
-      "cooling_accumulated_energy_consumption": { "name": "Consommation cumulée refroidissement" },
-      "tank_accumulated_energy_consumption": { "name": "Consommation cumulée ballon" },
-      "accumulated_energy_consumption": { "name": "Consommation cumulée" },
-      "heating_energy_consumption": { "name": "Consommation chauffage" },
-      "tank_energy_consumption": { "name": "Consommation ballon" },
-      "cooling_energy_consumption": { "name": "Consommation refroidissement" },
-      "energy_consumption": { "name": "Consommation" }
+      "outside_temperature": {
+        "name": "Température extérieure"
+      },
+      "tank_temperature": {
+        "name": "Température du ballon"
+      },
+      "zone_temperature": {
+        "name": "Température de zone"
+      },
+      "flow_temperature": {
+        "name": "Température de départ"
+      },
+      "return_temperature": {
+        "name": "Température de retour"
+      },
+      "compressor_status": {
+        "name": "État du compresseur"
+      },
+      "error_code": {
+        "name": "Code d'erreur"
+      },
+      "direction": {
+        "name": "Direction de la pompe"
+      },
+      "pump_status": {
+        "name": "État de la pompe"
+      },
+      "heating_accumulated_energy_consumption": {
+        "name": "Consommation cumulée chauffage"
+      },
+      "cooling_accumulated_energy_consumption": {
+        "name": "Consommation cumulée refroidissement"
+      },
+      "tank_accumulated_energy_consumption": {
+        "name": "Consommation cumulée ballon"
+      },
+      "accumulated_energy_consumption": {
+        "name": "Consommation cumulée"
+      },
+      "heating_energy_consumption": {
+        "name": "Consommation chauffage"
+      },
+      "tank_energy_consumption": {
+        "name": "Consommation ballon"
+      },
+      "cooling_energy_consumption": {
+        "name": "Consommation refroidissement"
+      },
+      "energy_consumption": {
+        "name": "Consommation"
+      }
     },
     "water_heater": {
-      "tank": { "name": "Ballon" }
+      "tank": {
+        "name": "Ballon"
+      }
     }
   },
   "services": {

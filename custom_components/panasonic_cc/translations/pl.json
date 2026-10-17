@@ -64,33 +64,33 @@
           },
           "swing_mode": {
             "state": {
-              "Auto": "Auto",
-              "Up": "Wysoki",
-              "UpMid": "Średniowysoki",
-              "Mid": "Średni",
-              "DownMid": "Średnioniski",
-              "Down": "Niski",
-              "Swing": "Wahadłowy"
+              "auto": "Auto",
+              "up": "Wysoki",
+              "up_mid": "Średniowysoki",
+              "mid": "Średni",
+              "down_mid": "Średnioniski",
+              "down": "Niski",
+              "swing": "Wahadłowy"
             }
           },
           "swing_horizontal_mode": {
             "state": {
-              "Auto": "Auto",
-              "Left": "Lewo",
-              "LeftMid": "Lewy środek",
-              "Mid": "Środek",
-              "RightMid": "Prawy środek",
-              "Right": "Prawo"
+              "auto": "Auto",
+              "left": "Lewo",
+              "left_mid": "Lewy środek",
+              "mid": "Środek",
+              "right_mid": "Prawy środek",
+              "right": "Prawo"
             }
           },
           "fan_mode": {
             "state": {
-              "Auto": "Auto",
-              "Low": "Niski",
-              "LowMid": "Średnioniski",
-              "Mid": "Średni",
-              "HighMid": "Średniowysoki",
-              "High": "Wysoki"
+              "auto": "Auto",
+              "low": "Niski",
+              "low_mid": "Średnioniski",
+              "mid": "Średni",
+              "high_mid": "Średniowysoki",
+              "high": "Wysoki"
             }
           }
         }
@@ -99,40 +99,40 @@
     "select": {
       "horizontal_swing": {
         "state": {
-          "Auto": "Auto",
-          "Left": "Lewo",
-          "LeftMid": "Lewy środek",
-          "Mid": "Środek",
-          "RightMid": "Prawy środek",
-          "Right": "Prawo"
+          "auto": "Auto",
+          "left": "Lewo",
+          "left_mid": "Lewy środek",
+          "mid": "Środek",
+          "right_mid": "Prawy środek",
+          "right": "Prawo"
         }
       },
       "vertical_swing": {
         "state": {
-          "Auto": "Auto",
-          "Up": "Wysoki",
-          "UpMid": "Średniowysoki",
-          "Mid": "Średni",
-          "DownMid": "Średnioniski",
-          "Down": "Niski"
+          "auto": "Auto",
+          "up": "Wysoki",
+          "up_mid": "Średniowysoki",
+          "mid": "Średni",
+          "down_mid": "Średnioniski",
+          "down": "Niski"
         }
       }
     }
   },
   "services": {
     "set_horizontal_swing_mode": {
-        "name": "Ustaw poziomy kierunek nawiewu",
-        "description": "Ustaw poziomy kierunek nawiewu dla urządzenia klimatyzacyjnego.",
-        "fields": {
-            "entity_id": {
-                "name": "Identyfikator urządzenia",
-                "description": "Nazwa urządzenia, dla którego ma zostać zmieniony kierunek nawiewu."
-            },
-            "swing_mode": {
-                "name": "Kierunek nawiewu",
-                "description": "Nowy poziomy kierunek nawiewu."
-            }
+      "name": "Ustaw poziomy kierunek nawiewu",
+      "description": "Ustaw poziomy kierunek nawiewu dla urządzenia klimatyzacyjnego.",
+      "fields": {
+        "entity_id": {
+          "name": "Identyfikator urządzenia",
+          "description": "Nazwa urządzenia, dla którego ma zostać zmieniony kierunek nawiewu."
+        },
+        "swing_mode": {
+          "name": "Kierunek nawiewu",
+          "description": "Nowy poziomy kierunek nawiewu."
         }
+      }
     }
   }
 }
