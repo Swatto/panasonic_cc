@@ -8,11 +8,14 @@ Exit 0 always (report may say "no breakages" or warn on failure) —
 the caller embeds the output in the PR body.
 """
 import json
+import re
 import sys
 import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
+
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def download_and_extract(pkg: str, version: str, dest: Path) -> Path | None:
@@ -52,7 +55,10 @@ def main():
                 return
             lines = [f"### 🔎 API breaking changes (griffe) : `{pkg}` `{old}` → `{new}`", ""]
             for b in breakages:
-                lines.append(f"- **[{b.kind.name}]** {b.explain()}")
+                # Strip ANSI colours and shorten local temp paths to `module/path.py:line`
+                text = ANSI_RE.sub("", b.explain())
+                text = re.sub(rf"{re.escape(str(tmp))}/(old|new)/pkg/", "", text)
+                lines.append(f"- **[{b.kind.name}]** {text}")
             print("\n".join(lines))
     except Exception as e:
         print(f"⚠️ griffe a échoué ({type(e).__name__}: {e}) — vérification manuelle requise.")
