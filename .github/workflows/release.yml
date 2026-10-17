@@ -1,0 +1,33 @@
+name: Release
+
+# Creates a GitHub release/tag when the manifest version differs from the
+# latest existing tag. HACS (custom repo) tracks releases, so this is what
+# makes dep-bump merges visible as updates in Home Assistant.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read manifest version
+        id: ver
+        run: echo "version=$(jq -r .version custom_components/panasonic_cc/manifest.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Create release if new version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "Tag v$VERSION already exists — nothing to release."
+            exit 0
+          fi
+          gh release create "v$VERSION" --target "$GITHUB_SHA" \
+            --generate-notes --title "v$VERSION"
